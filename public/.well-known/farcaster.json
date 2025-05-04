@@ -1,4 +1,9 @@
 {
+  "accountAssociation": {
+    "header": "eyJmaWQiOjI0MzIwNCwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweDc3RDBjNEE0ZTg4Njg5QTU0RDdGMzYyRjgxNzZDMEM4NjRjMjA2MTEifQ",
+    "payload": "eyJkb21haW4iOiJvdmVydGltZS1taW5pYXBwLnZlcmNlbC5hcHAifQ",
+    "signature": "MHgwODVhY2RmMTFlNjBhYzdjNWNhMGFkODcyOTU1MGVmNGIxYTE5ZGIyZTM2NDI0YzNjYjQzNzYwNzgxNDVhMmZhMzJiOGViYWQ1YjljYzdkMzIwZDZjNzRjZTg3NGY2ZjNhYzM5ZGY2ZjdjYjUyMTAyOTFiNDRlZDg1ZDk1MzAyZjFi"
+  },
   "capabilities": {
     "wallet": true, 
     "social": false 
