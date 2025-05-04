@@ -1,3 +1,4 @@
+import sdk from '@farcaster/frame-sdk';
 import { useConnect as useParticleConnect } from '@particle-network/authkit';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import Loader from 'components/Loader';
@@ -128,6 +129,17 @@ const App = () => {
             }
         };
     }, [dispatch]);
+
+    // Signal ready to the Warpcast frame environment
+    useEffect(() => {
+        // Check if running in a frame context where sdk might exist
+        if (sdk?.actions?.ready) {
+             sdk.actions.ready();
+             console.log('Frame SDK ready signal sent'); // Added for debugging
+        } else {
+            console.log('Not in frame context or SDK not available');
+        }
+    }, []);
 
     return (
         <Theme>

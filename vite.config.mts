@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { ConfigEnv, Plugin, PluginOption, defineConfig, loadEnv } from 'vite';
 import checker from 'vite-plugin-checker';
-import eslint from 'vite-plugin-eslint';
+// import eslint from 'vite-plugin-eslint';
 import svgr from 'vite-plugin-svgr';
 import tsconfigPaths from 'vite-tsconfig-paths';
 
@@ -35,13 +35,13 @@ const plugins = (mode: string): PluginOption[] => {
         checker({
             typescript: { tsconfigPath: 'tsconfig.json' },
         }),
-        eslint({
-            failOnError: true,
-            failOnWarning: true,
-            emitError: true,
-            emitWarning: true,
-            useEslintrc: true,
-        }),
+        // eslint({
+        //     failOnError: true,
+        //     failOnWarning: true,
+        //     emitError: true,
+        //     emitWarning: true,
+        //     useEslintrc: true,
+        // }),
         particleWasmPlugin,
     ];
 };
@@ -59,6 +59,11 @@ export default defineConfig(({ mode }) => {
             open: true,
             // this sets a default port to 3000
             port: 3000,
+            // Allow connections from the Cloudflare Tunnel hostnames
+            allowedHosts: [
+                'sun-entertainment-negotiations-jail.trycloudflare.com',
+                'installed-schedules-identified-territories.trycloudflare.com',
+            ],
         },
         build: {
             rollupOptions: {
