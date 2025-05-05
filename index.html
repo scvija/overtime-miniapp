@@ -45,12 +45,8 @@
         <link rel="apple-touch-startup-image" href="/logo512.png" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
-        <!-- Farcaster Mini-App Meta Tags -->
-        <meta property="fc:miniapp:title" content="Overtime Sportsbook">
-        <meta property="fc:miniapp:description" content="Bet on sports with Overtime Markets via Farcaster">
-        <meta property="fc:miniapp:image" content="https://overtime-miniapp.vercel.app/embed.png">
-        
-        <!-- Removed Frame V2 Tags -->
+        <!-- Farcaster Embed Meta Tag (replaces fc:miniapp:*) -->
+        <meta name="fc:frame" content='{"version":"next","imageUrl":"https://overtime-miniapp.vercel.app/embed.png","button":{"title":"Launch Overtime","action":{"type":"launch_frame","url":"https://overtime-miniapp.vercel.app/"}}}' />
 
         <title>Overtime Sportsbook: The Premier Web3 Sportsbook</title>
     </head>
