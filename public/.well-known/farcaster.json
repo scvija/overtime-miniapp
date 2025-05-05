@@ -20,7 +20,7 @@
     "tags": ["sports", "betting", "farcaster", "web3"],
     "heroImageUrl": "https://overtime-miniapp.vercel.app/embed.png",
     "tagline": "Bet on sports with ease!",
-    "ogTitle": "Overtime Sportsbook Mini-App (Test)",
+    "ogTitle": "Overtime Sportsbook Mini-App",
     "ogDescription": "Bet on sports directly via Farcaster!",
     "ogImageUrl": "https://overtime-miniapp.vercel.app/embed.png",
     "ogType": "website",
