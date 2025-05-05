@@ -10,12 +10,22 @@
   },
   "frame": {
     "version": "1",
-    "name": "Overtime Sportsbook",
+    "name": "Overtime Sportsbook (Test)",
     "description": "Bet on sports with Overtime Markets via Farcaster",
     "iconUrl": "https://overtime-miniapp.vercel.app/logo1024.png",
     "homeUrl": "https://overtime-miniapp.vercel.app",
-    "ogTitle": "Overtime Sportsbook Mini-App",
+    "subtitle": "Sports betting on Farcaster",
+    "screenshotUrls": [],
+    "primaryCategory": "finance",
+    "tags": ["sports", "betting", "farcaster", "web3"],
+    "heroImageUrl": "https://overtime-miniapp.vercel.app/embed.png",
+    "tagline": "Bet on sports with ease!",
+    "ogTitle": "Overtime Sportsbook Mini-App (Test)",
     "ogDescription": "Bet on sports directly via Farcaster!",
-    "ogImageUrl": "https://overtime-miniapp.vercel.app/embed.png"
+    "ogImageUrl": "https://overtime-miniapp.vercel.app/embed.png",
+    "ogType": "website",
+    "ogImage:width": 1200,
+    "ogImage:height": 630,
+    "buttonTitle": "Open"
   }
 } 

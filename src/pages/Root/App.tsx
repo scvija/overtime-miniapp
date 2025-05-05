@@ -130,15 +130,30 @@ const App = () => {
         };
     }, [dispatch]);
 
-    // Signal ready to the Warpcast frame environment
+    // Signal ready to the Warpcast frame environment (with retry)
     useEffect(() => {
-        // Check if running in a frame context where sdk might exist
-        if (sdk?.actions?.ready) {
-             sdk.actions.ready();
-             console.log('Frame SDK ready signal sent'); // Added for debugging
-        } else {
-            console.log('Not in frame context or SDK not available');
-        }
+        const attemptReady = (retryCount = 0) => {
+            try {
+                // Check if running in a frame context where sdk might exist
+                if (sdk?.actions?.ready) {
+                    sdk.actions.ready();
+                    console.log('Frame SDK ready signal sent'); 
+                } else {
+                    console.log('Not in frame context or SDK not available yet.');
+                    // Optional: Retry if SDK wasn't available immediately
+                    if (retryCount < 3) { // Limit retries
+                        setTimeout(() => attemptReady(retryCount + 1), 1000); 
+                    }
+                }
+            } catch (error) {
+                console.error('Frame SDK actions.ready() error:', error);
+                // Optional: Retry on error
+                if (retryCount < 3) { // Limit retries
+                     setTimeout(() => attemptReady(retryCount + 1), 1000); 
+                }
+            }
+        };
+        attemptReady(); // Initial attempt
     }, []);
 
     return (
