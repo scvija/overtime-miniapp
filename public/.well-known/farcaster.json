@@ -12,7 +12,7 @@
     "version": "1",
     "name": "Overtime Sportsbook",
     "description": "Bet on sports with Overtime Markets via Farcaster",
-    "iconUrl": "https://overtime-miniapp.vercel.app/logo192.png", 
+    "iconUrl": "https://overtime-miniapp.vercel.app/logo1024.png",
     "homeUrl": "https://overtime-miniapp.vercel.app",
     "ogTitle": "Overtime Sportsbook Mini-App",
     "ogDescription": "Bet on sports directly via Farcaster!",
