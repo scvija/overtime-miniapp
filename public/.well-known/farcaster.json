@@ -4,17 +4,11 @@
     "payload": "eyJkb21haW4iOiJvdmVydGltZS1taW5pYXBwLnZlcmNlbC5hcHAifQ",
     "signature": "MHgwODVhY2RmMTFlNjBhYzdjNWNhMGFkODcyOTU1MGVmNGIxYTE5ZGIyZTM2NDI0YzNjYjQzNzYwNzgxNDVhMmZhMzJiOGViYWQ1YjljYzdkMzIwZDZjNzRjZTg3NGY2ZjNhYzM5ZGY2ZjdjYjUyMTAyOTFiNDRlZDg1ZDk1MzAyZjFi"
   },
-  "name": "Overtime Sportsbook Mini-App",
-  "description": "Bet on sports directly via Farcaster!",
-  "iconUrl": "https://overtime-miniapp.vercel.app/logos/logo1024.png",
-  "dappUrl": "https://overtime-miniapp.vercel.app/",
-  "chains": [
-    "eip155:10",
-    "eip155:42161",
-    "eip155:8453",
-    "eip155:137"
-  ],
-  "capabilities": [
-    "clipboard"
-  ]
+  "frame": {
+    "version": "1",
+    "name": "Overtime Sportsbook Mini-App",
+    "description": "Bet on sports directly via Farcaster!",
+    "iconUrl": "https://overtime-miniapp.vercel.app/logos/logo1024.png",
+    "homeUrl": "https://overtime-miniapp.vercel.app/"
+  }
 } 
