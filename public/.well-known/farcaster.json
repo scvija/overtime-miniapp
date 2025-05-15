@@ -4,28 +4,17 @@
     "payload": "eyJkb21haW4iOiJvdmVydGltZS1taW5pYXBwLnZlcmNlbC5hcHAifQ",
     "signature": "MHgwODVhY2RmMTFlNjBhYzdjNWNhMGFkODcyOTU1MGVmNGIxYTE5ZGIyZTM2NDI0YzNjYjQzNzYwNzgxNDVhMmZhMzJiOGViYWQ1YjljYzdkMzIwZDZjNzRjZTg3NGY2ZjNhYzM5ZGY2ZjdjYjUyMTAyOTFiNDRlZDg1ZDk1MzAyZjFi"
   },
-  "capabilities": {
-    "wallet": true, 
-    "social": false 
-  },
-  "frame": {
-    "version": "1",
-    "name": "Overtime Sportsbook (Test)",
-    "description": "Bet on sports with Overtime Markets via Farcaster",
-    "iconUrl": "https://overtime-miniapp.vercel.app/logo1024.png",
-    "homeUrl": "https://overtime-miniapp.vercel.app",
-    "subtitle": "Sports betting on Farcaster",
-    "screenshotUrls": [],
-    "primaryCategory": "finance",
-    "tags": ["sports", "betting", "farcaster", "web3"],
-    "heroImageUrl": "https://overtime-miniapp.vercel.app/embed.png",
-    "tagline": "Bet on sports with ease!",
-    "ogTitle": "Overtime Sportsbook Mini-App",
-    "ogDescription": "Bet on sports directly via Farcaster!",
-    "ogImageUrl": "https://overtime-miniapp.vercel.app/embed.png",
-    "ogType": "website",
-    "ogImage:width": 1200,
-    "ogImage:height": 630,
-    "buttonTitle": "Open"
-  }
+  "name": "Overtime Sportsbook Mini-App",
+  "description": "Bet on sports directly via Farcaster!",
+  "iconUrl": "https://overtime-miniapp.vercel.app/logos/logo1024.png",
+  "dappUrl": "https://overtime-miniapp.vercel.app/",
+  "chains": [
+    "eip155:10",
+    "eip155:42161",
+    "eip155:8453",
+    "eip155:137"
+  ],
+  "capabilities": [
+    "clipboard"
+  ]
 } 
