@@ -12,11 +12,14 @@ import NumericInput from 'components/fields/NumericInput';
 import { getErrorToastOptions, getLoadingToastOptions, getSuccessToastOptions } from 'config/toast';
 import { PLAUSIBLE, PLAUSIBLE_KEYS } from 'constants/analytics';
 import { CRYPTO_CURRENCY_MAP, USD_SIGN } from 'constants/currency';
+import { USER_REJECTED_ERRORS } from 'constants/errors';
 import {
     APPROVAL_BUFFER,
     COINGECKO_SWAP_TO_OVER_QUOTE_SLIPPAGE,
     OVER_CONTRACT_RATE_KEY,
     SGP_BET_MINIMUM_MARKETS,
+    SLIPPAGE_MAX_VALUE,
+    SLIPPAGE_PERCENTAGES,
     SWAP_APPROVAL_BUFFER,
     SYSTEM_BET_MAX_ALLOWED_SYSTEM_COMBINATIONS,
     SYSTEM_BET_MINIMUM_DENOMINATOR,
@@ -27,7 +30,8 @@ import { OVERDROP_LEVELS } from 'constants/overdrop';
 import { LOCAL_STORAGE_KEYS } from 'constants/storage';
 import { secondsToMilliseconds } from 'date-fns';
 import { ContractType } from 'enums/contract';
-import { OddsType } from 'enums/markets';
+import { LiveTradingFinalStatus, LiveTradingTicketStatus, OddsType } from 'enums/markets';
+import { Network } from 'enums/network';
 import { BuyTicketStep } from 'enums/tickets';
 import useDebouncedEffect from 'hooks/useDebouncedEffect';
 import useInterval from 'hooks/useInterval';
@@ -36,7 +40,7 @@ import Slippage from 'pages/Markets/Home/Parlay/components/Slippage';
 import CurrentLevelProgressLine from 'pages/Overdrop/components/CurrentLevelProgressLine';
 import { OverdropIcon } from 'pages/Overdrop/components/styled-components';
 import useAMMContractsPausedQuery from 'queries/markets/useAMMContractsPausedQuery';
-import useLiveTradingProcessorDataQuery from 'queries/markets/useLiveTradingProcessorDataQuery';
+import useLiveTradingProcessorQuery from 'queries/markets/useLiveTradingProcessorQuery';
 import useSportsAmmDataQuery from 'queries/markets/useSportsAmmDataQuery';
 import useTicketLiquidityQuery from 'queries/markets/useTicketLiquidityQuery';
 import useGameMultipliersQuery from 'queries/overdrop/useGameMultipliersQuery';
@@ -57,6 +61,7 @@ import {
     getLiveBetSlippage,
     getTicketPayment,
     removeAll,
+    removeTicketRequestById,
     resetTicketError,
     setIsFreeBetDisabledByUser,
     setIsSgp,
@@ -64,6 +69,7 @@ import {
     setLiveBetSlippage,
     setPaymentAmountToBuy,
     setPaymentSelectedCollateralIndex,
+    updateTicketRequests,
 } from 'redux/modules/ticket';
 import { getOddsType } from 'redux/modules/ui';
 import { getIsBiconomy, getIsConnectedViaParticle, setWalletConnectModalVisibility } from 'redux/modules/wallet';
@@ -85,14 +91,13 @@ import {
     getPrecision,
     roundNumberToDecimals,
 } from 'thales-utils';
-import { SportsAmmData, TicketMarket, TradeData } from 'types/markets';
+import { SportsAmmData, TicketMarket, TicketRequest, TradeData } from 'types/markets';
 import { OverdropMultiplier, OverdropUserData } from 'types/overdrop';
 import { RootState } from 'types/redux';
 import { SportsbookData } from 'types/sgp';
 import { ShareTicketModalProps } from 'types/tickets';
 import { OverdropLevel, ThemeInterface } from 'types/ui';
 import { ViemContract } from 'types/viem';
-import { GAS_LIMIT, executeBiconomyTransaction, getPaymasterData, sendBiconomyTransaction } from 'utils/biconomy';
 import {
     convertFromStableToCollateral,
     getCollateral,
@@ -112,8 +117,14 @@ import multipleCollateral from 'utils/contracts/multipleCollateralContract';
 import sportsAMMV2Contract from 'utils/contracts/sportsAMMV2Contract';
 import { isErrorExcluded, logErrorToDiscord } from 'utils/discord';
 import { convertFromBytes32 } from 'utils/formatters/string';
-import { formatMarketOdds } from 'utils/markets';
-import { getTradeData } from 'utils/marketsV2';
+import { formatMarketOdds, isOddsChangeAllowed } from 'utils/markets';
+import {
+    getMatchLabel,
+    getPositionTextV2,
+    getTitleText,
+    getTradeData,
+    ticketMarketAsSerializable,
+} from 'utils/marketsV2';
 import { checkAllowance } from 'utils/network';
 import {
     formatPoints,
@@ -132,6 +143,13 @@ import {
     refetchTicketLiquidity,
 } from 'utils/queryConnector';
 import { getReferralId } from 'utils/referral';
+import {
+    GAS_LIMIT,
+    executeBiconomyTransaction,
+    getPaymasterData,
+    sendBiconomyTransaction,
+} from 'utils/smartAccount/biconomy/biconomy';
+import useBiconomy from 'utils/smartAccount/hooks/useBiconomy';
 import { getSportsAMMV2QuoteMethod, getSportsAMMV2Transaction } from 'utils/sportsAmmV2';
 import {
     PARASWAP_TRANSFER_PROXY,
@@ -151,7 +169,6 @@ import {
 import { delay } from 'utils/timer';
 import { getRequestId, getTradingProcessorTransaction, processTransaction } from 'utils/tradingProcessor';
 import { getKeepSelectionFromStorage, setKeepSelectionToStorage } from 'utils/ui';
-import useBiconomy from 'utils/useBiconomy';
 import { Address, Client, maxUint256, parseEther } from 'viem';
 import { waitForTransactionReceipt } from 'viem/actions';
 import { useAccount, useChainId, useClient, useWalletClient } from 'wagmi';
@@ -215,8 +232,6 @@ const TicketErrorMessage = {
     PROOF_IS_NOT_VALID: 'Proof is not valid',
 };
 
-const SLIPPAGE_PERCENTAGES = [0.5, 1, 2];
-
 const Ticket: React.FC<TicketProps> = ({
     markets,
     setMarketsOutOfLiquidity,
@@ -245,11 +260,9 @@ const Ticket: React.FC<TicketProps> = ({
     const client = useClient();
     const walletClient = useWalletClient();
 
-    const { address, isConnected, connector } = useAccount(); // Attempt to get connector too
-    // console.log('[TicketV2] useAccount Details:', { address, isConnected, connectorName: connector?.name, connectorId: connector?.id });
-
-    const smartAddres = useBiconomy();
-    const walletAddress = (isBiconomy ? smartAddres : address) || '';
+    const { address, isConnected } = useAccount();
+    const { smartAddress } = useBiconomy();
+    const walletAddress = (isBiconomy ? smartAddress : address) || '';
 
     const selectedOddsType = useSelector(getOddsType);
     const ticketPayment = useSelector(getTicketPayment);
@@ -296,7 +309,9 @@ const Ticket: React.FC<TicketProps> = ({
         LOCAL_STORAGE_KEYS.SYSTEM_BET_DENOMINATOR,
         SYSTEM_BET_MINIMUM_DENOMINATOR
     );
+    const [sgpOddsChanged, setSgpOddsChanged] = useState(false);
     const [isTotalQuoteIncreased, setIsTotalQuoteIncreased] = useState(false);
+    const [isProofValid, setIsProofValid] = useState(true);
 
     const userMultipliersQuery = useUserMultipliersQuery(address as any, { enabled: isConnected });
 
@@ -500,14 +515,14 @@ const Ticket: React.FC<TicketProps> = ({
     const overContractCurrencyRate =
         exchangeRates && exchangeRates !== null ? exchangeRates[OVER_CONTRACT_RATE_KEY] : 1;
 
-    const liveTradingProcessorDataQuery = useLiveTradingProcessorDataQuery({ networkId, client });
+    const liveTradingProcessorQuery = useLiveTradingProcessorQuery({ networkId, client });
 
     const maxAllowedExecutionDelay = useMemo(
         () =>
-            liveTradingProcessorDataQuery.isSuccess && liveTradingProcessorDataQuery.data
-                ? liveTradingProcessorDataQuery.data.maxAllowedExecutionDelay + 10
+            liveTradingProcessorQuery.isSuccess && liveTradingProcessorQuery.data
+                ? liveTradingProcessorQuery.data.maxAllowedExecutionDelay
                 : 20,
-        [liveTradingProcessorDataQuery.isSuccess, liveTradingProcessorDataQuery.data]
+        [liveTradingProcessorQuery.isSuccess, liveTradingProcessorQuery.data]
     );
 
     const userDataQuery = useUserDataQuery(address as any, { enabled: isConnected });
@@ -668,6 +683,7 @@ const Ticket: React.FC<TicketProps> = ({
         sgpData?.priceWithSpread,
     ]);
 
+    const initialSgpTotalQuote = useRef<number>(totalQuote);
     const previousTotalQuote = useRef<number>(totalQuote);
     const previousMarkets = useRef<TicketMarket[]>(markets);
     const previousUsedCollateral = useRef<Coins>(usedCollateralForBuy);
@@ -688,6 +704,10 @@ const Ticket: React.FC<TicketProps> = ({
                 (isOverCurrency(usedCollateralForBuy) || isOverCurrency(previousUsedCollateral.current)) &&
                 isOverCurrency(usedCollateralForBuy) !== isOverCurrency(previousUsedCollateral.current);
 
+            if (initialSgpTotalQuote.current === 0) {
+                initialSgpTotalQuote.current = totalQuote;
+            }
+
             if (
                 totalQuote &&
                 previousTotalQuote.current &&
@@ -695,16 +715,20 @@ const Ticket: React.FC<TicketProps> = ({
                 !isMarketsUpdated &&
                 !isQuoteChangedDueThalesBonus
             ) {
-                setOddsChanged && setOddsChanged(true);
+                setOddsChanged &&
+                    setOddsChanged(!isOddsChangeAllowed(initialSgpTotalQuote.current, totalQuote, liveBetSlippage));
+                setSgpOddsChanged(true);
                 setIsTotalQuoteIncreased(totalQuote < previousTotalQuote.current); // smaller implied odds => higher quote
-            } else if (totalQuote === 0) {
+            } else if (totalQuote === 0 || isMarketsUpdated) {
                 acceptOddChanges && acceptOddChanges(false);
+                setSgpOddsChanged(false);
+                initialSgpTotalQuote.current = totalQuote;
             }
         }
         previousTotalQuote.current = totalQuote;
         previousMarkets.current = markets;
         previousUsedCollateral.current = usedCollateralForBuy;
-    }, [isSgp, totalQuote, markets, usedCollateralForBuy, setOddsChanged, acceptOddChanges]);
+    }, [isSgp, totalQuote, liveBetSlippage, markets, usedCollateralForBuy, setOddsChanged, acceptOddChanges]);
 
     const isSgpDataLoading = useMemo(() => isSgp && isValidSgpBet && !sgpData, [isSgp, isValidSgpBet, sgpData]);
 
@@ -942,6 +966,8 @@ const Ticket: React.FC<TicketProps> = ({
                                     : coinFormatter(parlayAmmQuote.buyInAmountInDefaultCollateral, networkId)
                             );
 
+                        setIsProofValid(true);
+
                         return {
                             ...parlayAmmQuote,
                             buyInAmountInDefaultCollateralNumber: coinFormatter(
@@ -959,6 +985,8 @@ const Ticket: React.FC<TicketProps> = ({
                             return { error: TicketErrorMessage.SAME_TEAM_IN_PARLAY };
                         }
                     } else if (e && e.toString().includes(TicketErrorMessage.PROOF_IS_NOT_VALID)) {
+                        setIsProofValid(false);
+                        console.log('Proof is not valid, refetching...');
                         refetchProofs(networkId, markets);
                     }
                     console.log(e);
@@ -967,27 +995,27 @@ const Ticket: React.FC<TicketProps> = ({
             }
         },
         [
-            client,
-            networkId,
             noProofs,
             isSystemBet,
             isValidSystemBet,
             isInvalidNumberOfCombination,
-            markets,
-            collateralHasLp,
-            isOver,
-            swapToOver,
-            isDefaultCollateral,
-            selectedCollateralCurrencyRate,
-            collateralAddress,
-            usedCollateralForBuy,
-            overCollateralAddress,
-            systemBetDenominator,
-            swappedOverToReceive,
-            buyInAmount,
-            isLiveTicket,
             isSgp,
             isInvalidSgpTotalQuote,
+            client,
+            networkId,
+            isLiveTicket,
+            collateralHasLp,
+            isDefaultCollateral,
+            swapToOver,
+            selectedCollateralCurrencyRate,
+            overCollateralAddress,
+            collateralAddress,
+            usedCollateralForBuy,
+            markets,
+            systemBetDenominator,
+            isOver,
+            swappedOverToReceive,
+            buyInAmount,
         ]
     );
 
@@ -1268,7 +1296,6 @@ const Ticket: React.FC<TicketProps> = ({
 
             const addressToApprove = sportsAMMV2Contract.addresses[networkId];
             let txHash;
-
             if (isBiconomy) {
                 txHash = await executeBiconomyTransaction({
                     collateralAddress: collateralContractWithSigner?.address as Address,
@@ -1278,11 +1305,7 @@ const Ticket: React.FC<TicketProps> = ({
                     data: [addressToApprove, approveAmount],
                 });
             } else {
-                const txOptions: { gas?: bigint } = {};
-                if (connector?.id === 'farcaster') {
-                    txOptions.gas = 200000n; // Default gas limit for Farcaster
-                }
-                txHash = await collateralContractWithSigner?.write.approve([addressToApprove, approveAmount], txOptions);
+                txHash = await collateralContractWithSigner?.write.approve([addressToApprove, approveAmount]);
                 setOpenApprovalModal(false);
             }
 
@@ -1464,8 +1487,6 @@ const Ticket: React.FC<TicketProps> = ({
     };
 
     const handleSubmit = async () => {
-        console.log('[TicketV2] handleSubmit triggered. isConnected:', isConnected, 'walletAddress:', walletAddress, 'isBiconomy:', isBiconomy);
-        dispatch(resetTicketError());
         const networkConfig = {
             client: walletClient.data,
             networkId,
@@ -1476,16 +1497,14 @@ const Ticket: React.FC<TicketProps> = ({
         const sgpTradingProcessorContract = getContractInstance(ContractType.SGP_TRADING_PROCESSOR, networkConfig);
         const freeBetHolderContract = getContractInstance(ContractType.FREE_BET_HOLDER, networkConfig);
 
-        let toastId: string | number | undefined; // Declare toastId here, undefined initially
-
+        // TODO: separate logic for regular and live markets
         if (
             (sportsAMMV2Contract && !isLiveTicket) ||
             (liveTradingProcessorContract && isLiveTicket) ||
             (sgpTradingProcessorContract && sportsAMMV2Contract && isSgp)
         ) {
             setIsBuying(true);
-            // DO NOT set toastId here
-
+            const toastId = toast.loading(t('market.toast-message.transaction-pending'));
             let step = buyStep;
             let overAmount = swappedOverToReceive;
             if (swapToOver) {
@@ -1496,11 +1515,14 @@ const Ticket: React.FC<TicketProps> = ({
                     swappedOverToReceive < coingeckoOverMinRecive
                 ) {
                     await delay(800);
-                    toast.error( // Direct error toast
+                    toast.update(
+                        toastId,
+                        getErrorToastOptions(
                             t('common.errors.swap-quote-low', {
                                 quote: formatCurrencyWithKey(CRYPTO_CURRENCY_MAP.OVER, swappedOverToReceive),
                                 minQuote: formatCurrencyWithKey(CRYPTO_CURRENCY_MAP.OVER, coingeckoOverMinRecive),
                             })
+                        )
                     );
                     setIsBuying(false);
                     return;
@@ -1510,10 +1532,38 @@ const Ticket: React.FC<TicketProps> = ({
                 ({ step, overAmount } = await handleBuyWithOverSteps(step));
 
                 if (step !== BuyTicketStep.BUY) {
-                    toast.error(t('common.errors.unknown-error-try-again')); // Direct error toast
+                    toast.update(toastId, getErrorToastOptions(t('common.errors.unknown-error-try-again')));
                     setIsBuying(false);
                     return;
                 }
+            }
+
+            const liveTicketRequestData: TicketRequest = {
+                initialRequestId: `initialRequestId${Date.now()}`,
+                requestId: '',
+                status: LiveTradingTicketStatus.PENDING,
+                finalStatus: LiveTradingFinalStatus.IN_PROGRESS,
+                errorReason: '',
+                ticket: ticketMarketAsSerializable(markets[0]),
+                buyInAmount: Number(swapToOver ? overAmount : buyInAmount),
+                totalQuote: totalQuote,
+                payout: payout,
+                collateral: usedCollateralForBuy,
+            };
+            if (isLiveTicket) {
+                dispatch(updateTicketRequests(liveTicketRequestData));
+
+                setTimeout(
+                    () => {
+                        if (swapToOver) {
+                            setOpenBuyStepsModal(false);
+                            setBuyStep(BuyTicketStep.APPROVE_SWAP);
+                        }
+
+                        setIsBuying(false);
+                    }, // enable multiple parallel buying for live tickets after 4s for biconomy
+                    isBiconomy ? 4000 : 0
+                );
             }
 
             let tradeData: TradeData[] = [];
@@ -1539,14 +1589,11 @@ const Ticket: React.FC<TicketProps> = ({
                 const additionalSlippage = parseEther(isLiveTicket || isSgp ? liveBetSlippage / 100 + '' : '0.02');
 
                 let txHash;
-                const txOptions: { gas?: bigint } = {};
-                if (connector?.id === 'farcaster') {
-                    txOptions.gas = 500000n;
-                }
 
-                const liveTradeDataOdds = tradeData[0]?.odds; // Added optional chaining for safety
-                const liveTradeDataPosition = tradeData[0]?.position;
-                const liveTotalQuote = (liveTradeDataOdds && typeof liveTradeDataPosition !== 'undefined') ? BigInt(liveTradeDataOdds[liveTradeDataPosition]) : 0n;
+                if (isLiveTicket || isSgp) {
+                    const liveTradeDataOdds = tradeData[0].odds;
+                    const liveTradeDataPosition = tradeData[0].position;
+                    const liveTotalQuote = BigInt(liveTradeDataOdds[liveTradeDataPosition]);
 
                     const maxSupportedOdds = Math.max(
                         sportsAmmData?.maxSupportedOdds || 1,
@@ -1554,52 +1601,106 @@ const Ticket: React.FC<TicketProps> = ({
                     );
                     const sgpTotalQuote = parseEther(maxSupportedOdds.toString());
 
-                if (isLiveTicket || isSgp) {
                     if (isEth && !swapToOver && !isBiconomy) {
                         const WETHContractWithSigner = getContractInstance(
                             ContractType.MULTICOLLATERAL,
                             { client: walletClient.data, networkId },
                             getCollateralIndex(networkId, 'WETH')
                         );
+
                         if (WETHContractWithSigner) {
                             const wrapTx = await WETHContractWithSigner.write.deposit({ value: parsedBuyInAmount });
-                            const txReceiptInner = await waitForTransactionReceipt(client as Client, { hash: wrapTx });
-                            if (txReceiptInner.status === 'success') {
+
+                            const txReceipt = await waitForTransactionReceipt(client as Client, {
+                                hash: wrapTx,
+                            });
+
+                            if (txReceipt.status === 'success') {
                                 txHash = await getTradingProcessorTransaction(
-                                    isLiveTicket, isSgp, collateralAddress, liveOrSgpTradingProcessorContract, client as Client,
-                                    tradeData, parsedBuyInAmount, (isLiveTicket ? liveTotalQuote : sgpTotalQuote),
-                                    referralId, additionalSlippage, isBiconomy, false, undefined, networkId, isEth, txOptions.gas
+                                    isLiveTicket,
+                                    isSgp,
+                                    collateralAddress,
+                                    liveOrSgpTradingProcessorContract,
+                                    tradeData,
+                                    parsedBuyInAmount,
+                                    isLiveTicket ? liveTotalQuote : sgpTotalQuote,
+                                    referralId,
+                                    additionalSlippage,
+                                    isBiconomy,
+                                    false,
+                                    undefined,
+                                    networkId
                                 );
                             }
                         }
                     } else {
                         txHash = await getTradingProcessorTransaction(
-                            isLiveTicket, isSgp, (swapToOver ? overCollateralAddress : collateralAddress), liveOrSgpTradingProcessorContract, client as Client,
-                            tradeData, parsedBuyInAmount, (isLiveTicket ? liveTotalQuote : sgpTotalQuote),
-                            referralId, additionalSlippage, isBiconomy, isFreeBetActive, freeBetHolderContract, networkId, isEth, txOptions.gas
+                            isLiveTicket,
+                            isSgp,
+                            swapToOver ? overCollateralAddress : collateralAddress,
+                            liveOrSgpTradingProcessorContract,
+                            tradeData,
+                            parsedBuyInAmount,
+                            isLiveTicket ? liveTotalQuote : sgpTotalQuote,
+                            referralId,
+                            additionalSlippage,
+                            isBiconomy,
+                            isFreeBetActive,
+                            freeBetHolderContract,
+                            networkId,
+                            isEth
                         );
                     }
                 } else {
                     txHash = await getSportsAMMV2Transaction(
-                        swapToOver ? overCollateralAddress : collateralAddress, isDefaultCollateral && !swapToOver, isEth && !swapToOver,
-                        networkId, sportsAMMV2Contract, freeBetHolderContract, tradeData, parsedBuyInAmount, parsedTotalQuote,
-                        referralId, additionalSlippage, isBiconomy, isFreeBetActive, client as Client, isSystemBet, systemBetDenominator, txOptions.gas
+                        swapToOver ? overCollateralAddress : collateralAddress,
+                        isDefaultCollateral && !swapToOver,
+                        isEth && !swapToOver,
+                        networkId,
+                        sportsAMMV2Contract,
+                        freeBetHolderContract,
+                        tradeData,
+                        parsedBuyInAmount,
+                        parsedTotalQuote,
+                        referralId,
+                        additionalSlippage,
+                        isBiconomy,
+                        isFreeBetActive,
+                        walletClient.data,
+                        isSystemBet,
+                        systemBetDenominator
                     );
                 }
 
                 if (!txHash) {
-                    const logData = getLogData({ networkId,isParticle,isBiconomy,isSgp,isLiveTicket,tradeData,swapToOver,overAmount,buyInAmount,usedCollateralForBuy });
-                    logErrorToDiscord({ message: 'Transaction hash not received' } as Error, { componentStack: '' }, logData);
-                    setIsBuying(false);
+                    // there are scenarios when waitForTransactionReceipt is failing because tx hash doesn't exist
+                    const data = getLogData({
+                        walletAddress,
+                        networkId,
+                        isParticle,
+                        isBiconomy,
+                        isSgp,
+                        isLiveTicket,
+                        tradeData,
+                        swapToOver,
+                        overAmount,
+                        buyInAmount,
+                        usedCollateralForBuy,
+                    });
+                    logErrorToDiscord(
+                        { message: 'Transaction hash not received' } as Error,
+                        { componentStack: '' },
+                        data
+                    );
                     refetchAfterBuy(walletAddress, networkId);
-                    toast.error(t('markets.parlay.tx-not-received')); // Direct error toast
+                    setIsBuying(false);
+                    toast.update(toastId, getErrorToastOptions(t('common.errors.tx-receipt-not-received')));
                     return;
                 }
 
-                // NOW set toastId that tx is pending, after hash is received
-                toastId = toast.loading(t('market.toast-message.transaction-pending'));
-
-                const txReceipt = await waitForTransactionReceipt(client as Client, { hash: txHash });
+                const txReceipt = await waitForTransactionReceipt(client as Client, {
+                    hash: txHash,
+                });
 
                 if (txReceipt.status === 'success') {
                     PLAUSIBLE.trackEvent(
@@ -1627,7 +1728,7 @@ const Ticket: React.FC<TicketProps> = ({
                     const shareTicketPaid =
                         !collateralHasLp || (isDefaultCollateral && !swapToOver)
                             ? isLiveTicket || isSgp
-                                ? 0 
+                                ? 0 // get from last ticket for live or sgp
                                 : Number(buyInAmountInDefaultCollateral)
                             : swapToOver
                             ? swappedOverToReceive
@@ -1636,59 +1737,208 @@ const Ticket: React.FC<TicketProps> = ({
                     if (isLiveTicket || isSgp) {
                         const requestId = getRequestId(txReceipt.logs, isFreeBetActive, isSgp);
                         if (!requestId) {
-                            // Ensure toastId is handled if it was set
-                            if (toastId) toast.update(toastId, getErrorToastOptions('Request ID not found')); else toast.error('Request ID not found');
-                            setIsBuying(false);
                             throw new Error('Request ID not found');
                         }
+                        if (isLiveTicket) {
+                            liveTicketRequestData.requestId = requestId;
+                            dispatch(updateTicketRequests(liveTicketRequestData));
+                        }
+
                         if (liveOrSgpTradingProcessorContract) {
-                            if (toastId) toast.update(toastId, getLoadingToastOptions(t(`market.toast-message.${isSgp ? 'sgp-trade-requested' : 'live-trade-requested'}`)));
+                            toast.update(toastId, {
+                                ...getLoadingToastOptions(
+                                    t(
+                                        `market.toast-message.${
+                                            isSgp ? 'sgp-trade-requested' : 'live-trade-requested'
+                                        }`,
+                                        {
+                                            ticket: `${getMatchLabel(markets[0])} (${getTitleText(
+                                                markets[0]
+                                            )} ${getPositionTextV2(markets[0], markets[0].position, true)})`,
+                                        }
+                                    )
+                                ),
+                            });
                             await delay(2000);
                             const { isFulfilledTx, isAdapterError } = await processTransaction(
-                                networkId, liveOrSgpTradingProcessorContract, requestId, maxAllowedExecutionDelay, toastId!, // toastId should be set here
-                                t(`market.toast-message.${isSgp ? 'fulfilling-sgp-trade' : 'fulfilling-live-trade'}`)
+                                networkId,
+                                liveOrSgpTradingProcessorContract,
+                                requestId,
+                                maxAllowedExecutionDelay,
+                                toastId,
+                                t(`market.toast-message.${isSgp ? 'fulfilling-sgp-trade' : 'fulfilling-live-trade'}`),
+                                isLiveTicket ? dispatch : undefined,
+                                isLiveTicket ? liveTicketRequestData : undefined
                             );
+
                             if (isAdapterError) {
-                                setIsBuying(false); // toastId already updated by processTransaction or earlier
+                                setIsBuying(false);
                             } else if (!isFulfilledTx) {
-                                if (toastId) toast.update(toastId, getErrorToastOptions(t('markets.parlay.tx-not-received'))); else toast.error(t('markets.parlay.tx-not-received'));
+                                if (isLiveTicket) {
+                                    liveTicketRequestData.finalStatus = LiveTradingFinalStatus.FAILED;
+                                    liveTicketRequestData.errorReason = t('common.errors.tx-not-fulfilled');
+                                    dispatch(updateTicketRequests(liveTicketRequestData));
+                                }
+                                toast.update(toastId, getErrorToastOptions(t('common.errors.tx-not-fulfilled')));
                                 setIsBuying(false);
                             } else {
-                                const modalData = await getShareTicketModalData(
-                                    [...markets], collateralHasLp ? usedCollateralForBuy : defaultCollateral, shareTicketPaid, 0, 
-                                    shareTicketOnClose, true, isSgp, isFreeBetActive, undefined, networkConfig, walletAddress
+                                if (isLiveTicket) {
+                                    liveTicketRequestData.status = LiveTradingTicketStatus.CREATED;
+                                    liveTicketRequestData.finalStatus = LiveTradingFinalStatus.SUCCESS;
+                                    dispatch(updateTicketRequests(liveTicketRequestData));
+                                } else {
+                                    const modalData = await getShareTicketModalData(
+                                        [...markets],
+                                        collateralHasLp ? usedCollateralForBuy : defaultCollateral,
+                                        shareTicketPaid,
+                                        0,
+                                        shareTicketOnClose,
+                                        true, // isModalForLive
+                                        isSgp,
+                                        isFreeBetActive,
+                                        undefined,
+                                        networkConfig,
+                                        walletAddress
+                                    );
+
+                                    if (modalData) {
+                                        setShareTicketModalData(modalData);
+                                        setShowShareTicketModal(true);
+                                    }
+                                }
+
+                                if (!isLiveTicket) {
+                                    setBuyStep(BuyTicketStep.COMPLETED);
+                                    setOpenBuyStepsModal(false);
+                                }
+
+                                toast.update(
+                                    toastId,
+                                    getSuccessToastOptions(
+                                        isLiveTicket
+                                            ? t('market.toast-message.buy-success-ticket', {
+                                                  ticket: `${getMatchLabel(markets[0])} (${getTitleText(
+                                                      markets[0]
+                                                  )} ${getPositionTextV2(markets[0], markets[0].position, true)})`,
+                                              })
+                                            : t('market.toast-message.buy-success')
+                                    )
                                 );
-                                if (modalData) { setShareTicketModalData(modalData); setShowShareTicketModal(true); }
-                                setBuyStep(BuyTicketStep.COMPLETED); setOpenBuyStepsModal(false);
-                                if (toastId) toast.update(toastId, getSuccessToastOptions(t('market.toast-message.buy-success'))); else toast.success(t('market.toast-message.buy-success'));
-                                setIsBuying(false); setCollateralAmount('');
+                                setIsBuying(false);
+                                !isLiveTicket && setCollateralAmount('');
                             }
                             refetchAfterBuy(walletAddress, networkId);
                         }
                     } else {
+                        // regular/system bet (not SGP, not)
                         refetchAfterBuy(walletAddress, networkId);
-                        const systemBetData = isSystemBet ? getSystemBetDataObject(systemBetDenominator, numberOfSystemBetCombination, Number(buyInAmount), systemData.systemBetMinimumQuote, payout) : undefined;
-                        const modalData = await getShareTicketModalData([...markets], collateralHasLp ? usedCollateralForBuy : defaultCollateral, shareTicketPaid, payout, shareTicketOnClose, false, isSgp, isFreeBetActive, systemBetData);
-                        setShareTicketModalData(modalData); setShowShareTicketModal(true);
-                        setBuyStep(BuyTicketStep.COMPLETED); setOpenBuyStepsModal(false);
-                        if (toastId) toast.update(toastId, getSuccessToastOptions(t('market.toast-message.buy-success'))); else toast.success(t('market.toast-message.buy-success'));
-                        setIsBuying(false); setCollateralAmount('');
+
+                        const systemBetData = isSystemBet
+                            ? getSystemBetDataObject(
+                                  systemBetDenominator,
+                                  numberOfSystemBetCombination,
+                                  Number(buyInAmount),
+                                  systemData.systemBetMinimumQuote,
+                                  payout
+                              )
+                            : undefined;
+
+                        const modalData = await getShareTicketModalData(
+                            [...markets],
+                            collateralHasLp ? usedCollateralForBuy : defaultCollateral,
+                            shareTicketPaid,
+                            payout,
+                            shareTicketOnClose,
+                            false, // isModalForLive
+                            isSgp,
+                            isFreeBetActive,
+                            systemBetData
+                        );
+
+                        setShareTicketModalData(modalData);
+                        setShowShareTicketModal(true);
+
+                        setBuyStep(BuyTicketStep.COMPLETED);
+                        setOpenBuyStepsModal(false);
+
+                        toast.update(toastId, getSuccessToastOptions(t('market.toast-message.buy-success')));
+                        setIsBuying(false);
+                        setCollateralAmount('');
                     }
-                    if (isFreeBetActive) { refetchFreeBetBalance(walletAddress, networkId); setIsFreeBetInitialized(false); }
+
+                    if (isFreeBetActive) {
+                        refetchFreeBetBalance(walletAddress, networkId);
+                        setIsFreeBetInitialized(false);
+                    }
+
                     refetchTicketLiquidity(networkId, isSystemBet, systemBetDenominator, isSgp, totalQuote, markets);
                 } else {
-                    if (isSgp) { refetchProofs(networkId, markets); }
+                    if (isSgp) {
+                        console.log('refetchProofs');
+                        refetchProofs(networkId, markets);
+                    }
                     setIsBuying(false);
-                    if (toastId) toast.update(toastId, getErrorToastOptions(t('common.errors.unknown-error-try-again'))); else toast.error(t('common.errors.unknown-error-try-again'));
+                    refetchAfterBuy(walletAddress, networkId);
+                    toast.update(toastId, getErrorToastOptions(t('common.errors.tx-reverted')));
+                    if (isLiveTicket && !liveTicketRequestData.requestId) {
+                        liveTicketRequestData.finalStatus = LiveTradingFinalStatus.FAILED;
+                        liveTicketRequestData.errorReason = t('common.errors.tx-request-failed');
+                        dispatch(updateTicketRequests(liveTicketRequestData));
+                    }
+                    const data = getLogData({
+                        walletAddress,
+                        networkId,
+                        isParticle,
+                        isBiconomy,
+                        isSgp,
+                        isLiveTicket,
+                        tradeData,
+                        swapToOver,
+                        overAmount,
+                        buyInAmount,
+                        usedCollateralForBuy,
+                    });
+                    logErrorToDiscord(
+                        { message: `Transaction status is not success, but ${txReceipt.status}` } as Error,
+                        { componentStack: '' },
+                        data
+                    );
                 }
             } catch (e) {
                 setIsBuying(false);
                 refetchAfterBuy(walletAddress, networkId);
-                if (toastId) { toast.update(toastId, getErrorToastOptions(t('common.errors.unknown-error-try-again'))); } else { toast.error(t('common.errors.unknown-error-try-again')); }
+                const isUserRejected = USER_REJECTED_ERRORS.some((rejectedError) =>
+                    ((e as Error).message + ((e as Error).stack || '')).includes(rejectedError)
+                );
+                toast.update(
+                    toastId,
+                    getErrorToastOptions(
+                        isUserRejected ? t('common.errors.tx-canceled') : t('common.errors.unknown-error-try-again')
+                    )
+                );
+                if (isLiveTicket && !liveTicketRequestData.requestId) {
+                    // Remove pending request with delay in case tx was sent (just UI doesn't have info about request ID),
+                    // so it will be updated from contract. If user rejected remove it immediately.
+                    setTimeout(
+                        () => dispatch(removeTicketRequestById(liveTicketRequestData.initialRequestId)),
+                        isUserRejected ? 0 : 3000
+                    );
+                }
                 if (!isErrorExcluded(e as Error)) {
-                    // Renamed variable for clarity and to avoid redeclaration issues
-                    const errorLogData = getLogData({ networkId,isParticle,isBiconomy,isSgp,isLiveTicket,tradeData,swapToOver,overAmount,buyInAmount,usedCollateralForBuy });
-                    logErrorToDiscord(e as Error, { componentStack: '' }, errorLogData);
+                    const data = getLogData({
+                        walletAddress,
+                        networkId,
+                        isParticle,
+                        isBiconomy,
+                        isSgp,
+                        isLiveTicket,
+                        tradeData,
+                        swapToOver,
+                        overAmount,
+                        buyInAmount,
+                        usedCollateralForBuy,
+                    });
+                    logErrorToDiscord(e as Error, { componentStack: '' }, data);
                 }
             }
         }
@@ -1787,7 +2037,7 @@ const Ticket: React.FC<TicketProps> = ({
             }
         };
 
-        if (isBiconomy) setGasValue();
+        if (isBiconomy && networkId === Network.Arbitrum) setGasValue();
     }, [
         isEth,
         buyInAmount,
@@ -1940,6 +2190,15 @@ const Ticket: React.FC<TicketProps> = ({
                         </Button>
                     </Tooltip>
                 </>
+            );
+        }
+
+        if (!isProofValid) {
+            return (
+                <Button disabled={true} onClick={() => {}} {...defaultButtonProps}>
+                    {t('markets.parlay.latest-odds-checking')}
+                    <DotsLoader />
+                </Button>
             );
         }
 
@@ -2290,8 +2549,8 @@ const Ticket: React.FC<TicketProps> = ({
                             </SummaryValue>
                         </Tooltip>
                     )}
-                    {isSgp && oddsChanged && isTotalQuoteIncreased && <OddChangeUp />}
-                    {isSgp && oddsChanged && !isTotalQuoteIncreased && <OddChangeDown />}
+                    {isSgp && sgpOddsChanged && isTotalQuoteIncreased && <OddChangeUp />}
+                    {isSgp && sgpOddsChanged && !isTotalQuoteIncreased && <OddChangeDown />}
                     {!isSystemBet && (
                         <ClearLabel alignRight={true} onClick={() => dispatch(removeAll())}>
                             {t('markets.parlay.clear').toUpperCase()}
@@ -2403,7 +2662,10 @@ const Ticket: React.FC<TicketProps> = ({
                 <RowSummary>
                     <RowContainer>
                         <SummaryLabel isBonus>
-                            {t('markets.parlay.swap-over')}
+                            <Trans
+                                i18nKey="markets.parlay.swap-over"
+                                components={{ logo: <LogoIcon className="currency-icon currency-icon--over" /> }}
+                            />
                             <Tooltip
                                 overlay={
                                     <Trans
@@ -2453,7 +2715,11 @@ const Ticket: React.FC<TicketProps> = ({
                             onOutsideClick={() => slippageDropdownOpen && setSlippageDropdownOpen(false)}
                         >
                             <SettingsWrapper onClick={() => setSlippageDropdownOpen(!slippageDropdownOpen)}>
-                                <SettingsLabel>{t('markets.parlay.slippage.slippage')}</SettingsLabel>
+                                <SettingsLabel>{`${t('markets.parlay.slippage.accept')}: ${
+                                    liveBetSlippage === SLIPPAGE_MAX_VALUE
+                                        ? t('markets.parlay.slippage.any')
+                                        : liveBetSlippage + '%'
+                                }`}</SettingsLabel>
                                 <SettingsIcon className={`icon icon--settings`} />
                             </SettingsWrapper>
                             {slippageDropdownOpen && (
@@ -2576,32 +2842,35 @@ const Ticket: React.FC<TicketProps> = ({
                 </>
             )}
             <HorizontalLine />
-            <RowSummary>
-                <RowContainer>
-                    <SummaryLabel>
-                        {t('markets.parlay.persist-games')}
-                        <Tooltip
-                            overlay={t('markets.parlay.tooltip.keep-selection')}
-                            iconFontSize={14}
-                            marginLeft={3}
-                        />
-                        :
-                    </SummaryLabel>
-                    <CheckboxContainer>
-                        <Checkbox
-                            disabled={false}
-                            checked={keepSelection}
-                            value={keepSelection.toString()}
-                            onChange={(e: any) => {
-                                setKeepSelection(e.target.checked || false);
-                                setKeepSelectionToStorage(e.target.checked || false);
-                            }}
-                        />
-                    </CheckboxContainer>
-                </RowContainer>
-            </RowSummary>
+            {!isLiveTicket && (
+                <RowSummary>
+                    <RowContainer>
+                        <SummaryLabel>
+                            {t('markets.parlay.persist-games')}
+                            <Tooltip
+                                overlay={t('markets.parlay.tooltip.keep-selection')}
+                                iconFontSize={14}
+                                marginLeft={3}
+                            />
+                            :
+                        </SummaryLabel>
+                        <CheckboxContainer>
+                            <Checkbox
+                                disabled={false}
+                                checked={keepSelection}
+                                value={keepSelection.toString()}
+                                onChange={(e: any) => {
+                                    setKeepSelection(e.target.checked || false);
+                                    setKeepSelectionToStorage(e.target.checked || false);
+                                }}
+                            />
+                        </CheckboxContainer>
+                    </RowContainer>
+                </RowSummary>
+            )}
             <OverdropRowSummary margin={overdropSummaryOpen ? '5px 0' : '5px 0 0 0'}>
                 <OverdropRowSummary
+                    margin="0"
                     isClickable={!isFreeBetActive}
                     onClick={() => {
                         if (!isFreeBetActive) {
@@ -2703,14 +2972,18 @@ const Ticket: React.FC<TicketProps> = ({
                     </OverdropProgressWrapper>
                 </OverdropSummary>
             )}
-            {!isBuying && oddsChanged && (
+            {!isBuying && oddsChanged ? (
                 <>
                     <FlexDivCentered>
                         <OddsChangedDiv>{t('markets.parlay.odds-changed-description')}</OddsChangedDiv>
                     </FlexDivCentered>
                     <FlexDivCentered>
                         <Button
-                            onClick={() => acceptOddChanges(false)}
+                            onClick={() => {
+                                acceptOddChanges(false);
+                                setSgpOddsChanged(false);
+                                initialSgpTotalQuote.current = totalQuote;
+                            }}
                             borderColor="transparent"
                             backgroundColor={theme.button.background.septenary}
                             {...defaultButtonProps}
@@ -2719,8 +2992,9 @@ const Ticket: React.FC<TicketProps> = ({
                         </Button>
                     </FlexDivCentered>
                 </>
+            ) : (
+                <FlexDivCentered>{getSubmitButton()}</FlexDivCentered>
             )}
-            {!oddsChanged && <FlexDivCentered>{getSubmitButton()}</FlexDivCentered>}
             {gas >= GAS_LIMIT && (
                 <GasWarning>
                     {t('markets.parlay.gas-warning', { gas: formatCurrencyWithSign(USD_SIGN, gas, 4) })}
@@ -2795,6 +3069,28 @@ const LoaderContainer = styled(FlexDivColumn)`
     position: relative;
     max-width: 30px;
     max-height: 30px;
+`;
+
+const LogoIcon = styled.i`
+    margin-top: -2px;
+    font-size: 14px;
+    line-height: 12px;
+    color: ${(props) => props.theme.status.win}!important;
+`;
+
+const DotsLoader = styled.div`
+    width: 20px;
+    aspect-ratio: 4;
+    margin-top: 6px;
+    margin-left: 2px;
+    background: radial-gradient(circle closest-side, #000 50%, #0000) 0 / calc(100% / 3) 100% space;
+    clip-path: inset(0 100% 0 0);
+    animation: l1 1s steps(4) infinite;
+    @keyframes l1 {
+        to {
+            clip-path: inset(0 -34% 0 0);
+        }
+    }
 `;
 
 export default Ticket;

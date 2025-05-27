@@ -24,7 +24,7 @@ import { RootState } from 'types/redux';
 import { isMobile } from 'utils/device';
 import { getFreeBetModalShown, setFreeBetModalShown } from 'utils/freeBet';
 import { setReferralId } from 'utils/referral';
-import useBiconomy from 'utils/useBiconomy';
+import useBiconomy from 'utils/smartAccount/hooks/useBiconomy';
 import { useAccount, useChainId, useSwitchChain } from 'wagmi';
 import Banner from '../../components/Banner';
 import DappFooter from './DappFooter';
@@ -49,8 +49,8 @@ const DappLayout: React.FC<DappLayoutProps> = ({ children }) => {
     const history = useHistory();
     const { address } = useAccount();
 
-    const smartAddres = useBiconomy();
-    const walletAddress = (isBiconomy ? smartAddres : address) || '';
+    const { smartAddress } = useBiconomy();
+    const walletAddress = (isBiconomy ? smartAddress : address) || '';
 
     const [freeBetModalParam, setFreeBetModalParam] = useState(queryParams.freeBet);
 

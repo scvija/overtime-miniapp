@@ -38,8 +38,12 @@
             "rows-per-page": "Rows per page:"
         },
         "filter": {
-            "date": {
-                "choose": "Choose date"
+            "tooltip": {
+                "standard-view": "Switch to standard view",
+                "column-view": "Switch to three column view",
+                "sorting": "Select games sorting",
+                "date": "Select date range",
+                "odds": "Select odds format"
             }
         },
         "wallet": {
@@ -78,7 +82,8 @@
                 "apple": "Continue with Apple",
                 "browser-wallet": "Connect with Browser Wallet",
                 "coinbase": "Connect with Coinbase Wallet",
-                "wallet-connect": "WalletConnect"
+                "wallet-connect": "WalletConnect",
+                "binance-wallet": "Connect with Binance Wallet"
             }
         },
         "enable-wallet-access": {
@@ -102,6 +107,11 @@
             "something-went-wrong": "Something went wrong!",
             "unknown-error-try-again": "An unknown error occurred after you submitted. Please try again.",
             "unknown-error-try-again-general": "An unknown error occurred. Please try again.",
+            "tx-canceled": "Transaction is canceled.",
+            "tx-reverted": "Transaction is reverted.",
+            "tx-receipt-not-received": "Unable to obtain transaction receipt. The trade might still get executed, check your created tickets.",
+            "tx-not-fulfilled": "Failed to fulfill the trade.",
+            "tx-request-failed": "Failed to request the trade.",
             "batch-transaction-single-failure": "A transaction was rejected or failed.",
             "insufficient-balance": "Insufficient balance",
             "enter-amount": "Enter amount",
@@ -207,7 +217,7 @@
             "swap-success": "Successfully swapped {{ currencyKey }}",
             "approve-success": "Successfully approved",
             "buy-success": "Successfully bought",
-            "sell-success": "Successfully sold",
+            "buy-success-ticket": "Successfully bought ticket: {{ ticket }}",
             "claim-winnings-success": "Winnings successfully claimed",
             "claim-refund-success": "Refund successfully claimed",
             "withdraw-success": "Successfuly withdrawn",
@@ -222,7 +232,7 @@
             "click-open-twitter": "Click here to open Twitter",
             "metamask-not-supported": "Metamask browser doesn't support image download! Please use another browser to share image",
             "ios-not-supported": "Sharing images not supported on iOS devices. If you want to share the image please use desktop version",
-            "live-trade-requested": "Live trade requested",
+            "live-trade-requested": "Live trade requested: {{ ticket }}",
             "sgp-trade-requested": "SGP trade requested",
             "fulfilling-live-trade": "Fulfilling live trade",
             "fulfilling-sgp-trade": "Fulfilling SGP trade"
@@ -236,7 +246,7 @@
                 "yourpositions": "Your positions",
                 "claim": "Claimable",
                 "history": "Your transactions",
-                "cancelledmarkets": "Cancelled",
+                "cancelledmarkets": "Canceled",
                 "pausedmarkets": "Paused",
                 "archivedmarkets": "Archived markets",
                 "tooltip": "Markets resolved more than 7 days ago"
@@ -263,6 +273,7 @@
                 "handball": "Handball",
                 "waterpolo": "Water polo",
                 "cricket": "Cricket",
+                "darts": "Darts",
                 "boxing": "Boxing",
                 "golf": "Golf",
                 "soon": "More sports coming soon!",
@@ -529,7 +540,7 @@
             "started": "Started",
             "live": "Live",
             "time": "Time",
-            "canceled": "Cancelled",
+            "canceled": "Canceled",
             "pending-resolution": "Pending resolution",
             "claim": "Claim",
             "coming-soon": "Coming soon",
@@ -804,7 +815,7 @@
             "swap-thales-tooltip": "<bold>Boost your winnings with THALES!</bold> With just a simple click, you can automatically swap to THALES and enjoy improved betting quotes instantly! Payout is in THALES.",
             "keep-selection-tooltip": "By default, the parlay builder is reset after successful submission. Tick this if you want to keep current context after submission.",
             "over-bonus-tooltip": "Users placing trades with OVER will get 2% extra payouts for each game they have in their ticket (already calculated in Total quote and Payout).",
-            "swap-over": "Use OVER for better odds",
+            "swap-over": "Use <logo />$OVER for better odds",
             "swap-over-tooltip": "<bold>Boost your winnings with OVER!</bold> With just a simple click, you can automatically swap to OVER and enjoy improved betting quotes instantly! Payout is in OVER.",
             "clear": "Clear all",
             "buy-in": "Buy-in",
@@ -826,10 +837,14 @@
             "use-free-bet": "Use free bet",
             "disable-free-bet": "Disable free bet balances",
             "empty-title": "No positions",
+            "claim-free-bet-explainer": "Got a Free Bet code? Enter it below to claim your Free Bet and add it to your balance.",
+            "enter-code": "Enter free bet code",
+            "sign-in-to-claim": "Sign in to claim",
+            "use-over": "Use OVER for 2% bonus payout for each game.",
+            "claim": "Claim",
             "empty-description": "Add position, choose a market and make your selection.",
             "accept-odds-changes": "Accept odds changes",
             "odds-changed-description": "Odds changed. Accept changes in order to buy.",
-            "tx-not-received": "Unable to obtain transaction receipt. The trade might still get executed, check your profile for created tickets.",
             "tooltip": {
                 "regular": "Build your bet slip with singles, parlays or live bets.",
                 "system": "Create system bets that cover multiple combinations of selections. Even if some picks lose, you can still win.",
@@ -900,8 +915,10 @@
                 "parlay": "Ticket"
             },
             "slippage": {
-                "slippage": "Slippage",
-                "label": "Accept trade if odds drop by:",
+                "accept": "Accept odds change",
+                "label": "Accept trade if odds drop by",
+                "any-odds-label": "Accept any odds",
+                "any": "Any",
                 "enter-value": "Enter value",
                 "invalid-value": "Invalid value"
             },
@@ -938,14 +955,27 @@
             "buy-in-per-combination": "Buy-in per combination",
             "min-payout": "Min payout",
             "max-payout": "Max payout",
-            "min-max-payout": "Min/max payout"
+            "min-max-payout": "Min/max payout",
+            "latest-odds-checking": "Checking for latest odds"
         },
         "parlay-related-markets": {
-            "title": "Your other singles on this game",
+            "title-live": "Your recent live tickets",
+            "title-other": "Your other singles on this game",
             "empty": "No tickets",
             "total-quote": "Total quote",
             "paid": "Paid",
-            "payout": "Payout"
+            "payout": "Payout",
+            "status": {
+                "pending": "Transaction pending",
+                "approved": "Live trade approved",
+                "error": "Ticket creation failed",
+                "success": "Ticket created"
+            },
+            "creation-status": {
+                "pending": "Pending",
+                "failed": "Failed",
+                "success": "Success"
+            }
         },
         "zero-odds-tooltip": "Odds unavailable at the moment.",
         "low-odds-tooltip": "Sports AMM only offers liquidity for the price below $0.97. Effectively this means that if the odds for a position are more than 97%, that position won't have liquidity.",
@@ -960,7 +990,7 @@
             "set-result-label": "Set result",
             "set-result-placeholder": "Enter result",
             "set-result-tooltip": "Set result for the markets with the provided gameId, typeId and playerId. If more than one result (e.g. double chance), enter the result comma-separated (e.g. 1,2). NOTE: For total and handicaps, the result should be multiplied by 100. (e.g. total sets is 5, enter 500)",
-            "cancel-confirmation-message": "Successfully cancelled",
+            "cancel-confirmation-message": "Successfully canceled",
             "result-set-confirmation-message": "Result successfully set",
             "resolve-market-tooltip": "Resolve market",
             "cancel-ticket-tooltip": "Cancel ticket",
@@ -1023,7 +1053,7 @@
         "confirmation-modal": {
             "title": "Withdrawal requested",
             "correct-address": "Make sure the address is correct and that it accepts {{ token }} on {{ network }}",
-            "withdrawal-transaction-warning": "Withdraw transactions can not be cancelled",
+            "withdrawal-transaction-warning": "Withdraw transactions can not be canceled",
             "withdrawal-fee": "Withdrawal fee",
             "address": "Address",
             "network": "Network",
@@ -1114,6 +1144,7 @@
             "tooltip-2": "Deposit supported tokens to the address below. Make sure you select <span>{{ network }}</span> network when sending.",
             "tooltip-3": "Onramper integration, coming soon.",
             "tooltip-4": "Send funds from your wallet to your Overtime Account.",
+            "tooltip-universal": "Use this option to fund your Overtime Account from any network or chain with ETH, USDC, USDT, SOL or BNB",
             "tooltip-5": "Buy Crypto using your credit card or wire transfer",
             "powered-by": "Powered by <icon/>",
             "current-network": "Current network: ",
@@ -1126,7 +1157,8 @@
             "copy": "Copy",
             "qr": "QR",
             "wait-deposit": "Waiting for deposit...",
-            "claim-free-bet": "Claim a {{amount}} Free Bet."
+            "claim-free-bet": "Claim a {{amount}} Free Bet.",
+            "universal-deposit": "Universal deposit"
         },
         "withdraw": {
             "title": "Withdraw from <icon/> account",
@@ -1141,6 +1173,22 @@
             "activate-my-account": "Activate My Account",
             "activate-progress": "Activating...",
             "action": "Activate"
+        },
+        "universal-account": {
+            "title": "Universal deposit",
+            "address": "Your addresses",
+            "supported-chains": "Supported chains",
+            "evm": "EVM address",
+            "solana": "Solana address",
+            "subtitle": "Send supported crypto to the address below on supported chains",
+            "amount": "Transfer amount",
+            "transfer-pending": "Transfer to Overtime Account pending",
+            "success": "Transfed funds to Overtime Account successfully",
+            "error": "Some error occurred while transfering funds.",
+            "warning": "Ethereum has high deposit fees. We recommend using any other network when possible.",
+            "evm-label": "Send ETH, USDC, USDT or BNB to this address",
+            "solana-label": "Send SOL to this address",
+            "refresh": "Refresh your balance"
         }
     },
     "liquidity-pool": {

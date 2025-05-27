@@ -4,7 +4,7 @@ import React, { useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { getIsBiconomy } from 'redux/modules/wallet';
 import { RootState } from 'types/redux';
-import useBiconomy from 'utils/useBiconomy';
+import useBiconomy from 'utils/smartAccount/hooks/useBiconomy';
 import { useAccount, useChainId, useClient } from 'wagmi';
 import {
     ClaimableTicketsNotificationCount,
@@ -56,8 +56,8 @@ const NavigationBarMobile: React.FC<NavigationBarProps> = ({ selectedTab, setSel
     const networkId = useChainId();
     const client = useClient();
     const { address, isConnected } = useAccount();
-    const smartAddres = useBiconomy();
-    const walletAddress = (isBiconomy ? smartAddres : address) || '';
+    const { smartAddress } = useBiconomy();
+    const walletAddress = (isBiconomy ? smartAddress : address) || '';
 
     const positionsCountQuery = usePositionCountV2Query(walletAddress, { networkId, client }, { enabled: isConnected });
 

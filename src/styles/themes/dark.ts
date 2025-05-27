@@ -20,6 +20,7 @@ export default {
         quinary: Colors.NAVY_BLUE_EXTRA_LIGHT,
         senary: Colors.BLACK,
         septenary: Colors.TORY_BLUE_LIGHT,
+        octonary: Colors.PARTICLE,
     },
     borderColor: {
         primary: Colors.NAVY_BLUE_LIGHT,
@@ -155,6 +156,30 @@ export default {
         sold: Colors.NAVY_BLUE_LIGHT,
         comingSoon: Colors.ORANGE,
         finished: Colors.NAVY_BLUE_LIGHT,
+        pending: {
+            textColor: {
+                primary: Colors.BLUE,
+            },
+            background: {
+                primary: Colors.BLUE + '33', // opacity 20%
+            },
+        },
+        failed: {
+            textColor: {
+                primary: Colors.RED,
+            },
+            background: {
+                primary: Colors.RED + '33', // opacity 20%
+            },
+        },
+        success: {
+            textColor: {
+                primary: Colors.GREEN,
+            },
+            background: {
+                primary: Colors.GREEN + '33', // opacity 20%
+            },
+        },
     },
     promotion: {
         background: {
@@ -236,13 +261,10 @@ export default {
     },
     icon: {
         background: {
-            primary: Colors.BLACK,
-            secondary: Colors.PURPLE,
+            primary: Colors.WHITE,
         },
         textColor: {
-            primary: Colors.PURPLE,
-            secondary: Colors.BLACK,
-            tertiary: Colors.WHITE,
+            primary: Colors.BLACK,
         },
     },
     slider: {
@@ -255,6 +277,12 @@ export default {
         },
         textColor: {
             primary: Colors.WHITE,
+        },
+    },
+    toggle: {
+        label: {
+            primary: Colors.NAVY_BLUE_EXTRA_DARK,
+            secondary: Colors.WHITE,
         },
     },
 };

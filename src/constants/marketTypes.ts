@@ -30,10 +30,10 @@ import {
 } from 'overtime-utils';
 
 export const MarketTypesBySportFilter: Record<SportFilter, MarketType[]> = {
-    [SportFilter.Boosted]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL],
+    [SportFilter.Boosted]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL, ...FUTURES_MARKET_TYPES],
     [SportFilter.Live]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL],
-    [SportFilter.Favourites]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL],
-    [SportFilter.All]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL],
+    [SportFilter.Favourites]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL, ...FUTURES_MARKET_TYPES],
+    [SportFilter.All]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL, ...FUTURES_MARKET_TYPES],
     [SportFilter.Soccer]: [
         MarketType.WINNER,
         MarketType.SPREAD,
@@ -42,11 +42,30 @@ export const MarketTypesBySportFilter: Record<SportFilter, MarketType[]> = {
         MarketType.DRAW_NO_BET,
         MarketType.BOTH_TEAMS_TO_SCORE,
         MarketType.TOTAL_ODD_EVEN,
+        ...FUTURES_MARKET_TYPES,
     ],
-    [SportFilter.Football]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL, MarketType.TOTAL_ODD_EVEN],
-    [SportFilter.Basketball]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL, MarketType.TOTAL_ODD_EVEN],
-    [SportFilter.Baseball]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL, MarketType.WILL_THERE_BE_OVERTIME],
-    [SportFilter.Hockey]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL],
+    [SportFilter.Football]: [
+        MarketType.WINNER,
+        MarketType.SPREAD,
+        MarketType.TOTAL,
+        MarketType.TOTAL_ODD_EVEN,
+        ...FUTURES_MARKET_TYPES,
+    ],
+    [SportFilter.Basketball]: [
+        MarketType.WINNER,
+        MarketType.SPREAD,
+        MarketType.TOTAL,
+        MarketType.TOTAL_ODD_EVEN,
+        ...FUTURES_MARKET_TYPES,
+    ],
+    [SportFilter.Baseball]: [
+        MarketType.WINNER,
+        MarketType.SPREAD,
+        MarketType.TOTAL,
+        MarketType.WILL_THERE_BE_OVERTIME,
+        ...FUTURES_MARKET_TYPES,
+    ],
+    [SportFilter.Hockey]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL, ...FUTURES_MARKET_TYPES],
     [SportFilter.Fighting]: [
         MarketType.WINNER,
         MarketType.SPREAD,
@@ -55,13 +74,20 @@ export const MarketTypesBySportFilter: Record<SportFilter, MarketType[]> = {
         MarketType.GO_THE_DISTANCE,
         MarketType.WILL_FIGHT_END_IN_FIRST_MINUTE,
         MarketType.WILL_POINT_BE_DEDUCTED,
+        ...FUTURES_MARKET_TYPES,
     ],
-    [SportFilter.Tennis]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL],
-    [SportFilter.TableTennis]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL],
-    [SportFilter.eSports]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL],
-    [SportFilter.Rugby]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL],
-    [SportFilter.AussieRules]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL, MarketType.TOTAL_ODD_EVEN],
-    [SportFilter.Volleyball]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL],
+    [SportFilter.Tennis]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL, ...FUTURES_MARKET_TYPES],
+    [SportFilter.TableTennis]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL, ...FUTURES_MARKET_TYPES],
+    [SportFilter.eSports]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL, ...FUTURES_MARKET_TYPES],
+    [SportFilter.Rugby]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL, ...FUTURES_MARKET_TYPES],
+    [SportFilter.AussieRules]: [
+        MarketType.WINNER,
+        MarketType.SPREAD,
+        MarketType.TOTAL,
+        MarketType.TOTAL_ODD_EVEN,
+        ...FUTURES_MARKET_TYPES,
+    ],
+    [SportFilter.Volleyball]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL, ...FUTURES_MARKET_TYPES],
     [SportFilter.Handball]: [
         MarketType.WINNER,
         MarketType.SPREAD,
@@ -69,8 +95,9 @@ export const MarketTypesBySportFilter: Record<SportFilter, MarketType[]> = {
         MarketType.DOUBLE_CHANCE,
         MarketType.DRAW_NO_BET,
         MarketType.TOTAL_ODD_EVEN,
+        ...FUTURES_MARKET_TYPES,
     ],
-    [SportFilter.Waterpolo]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL],
+    [SportFilter.Waterpolo]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL, ...FUTURES_MARKET_TYPES],
     [SportFilter.Cricket]: [
         MarketType.WINNER,
         MarketType.TOTAL_FOURS,
@@ -79,7 +106,11 @@ export const MarketTypesBySportFilter: Record<SportFilter, MarketType[]> = {
         MarketType.MOST_FOURS,
         MarketType.MOST_SIXES,
         MarketType.MOST_RUNS_OUTS,
+        ...FUTURES_MARKET_TYPES,
     ],
+    [SportFilter.Motosport]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL, ...FUTURES_MARKET_TYPES],
+    [SportFilter.Golf]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL, ...FUTURES_MARKET_TYPES],
+    [SportFilter.Darts]: [MarketType.WINNER, MarketType.SPREAD, MarketType.TOTAL, ...FUTURES_MARKET_TYPES],
     [SportFilter.Politics]: [
         MarketType.WINNER,
         MarketType.US_ELECTION_POPULAR_VOTE_WINNER,
@@ -467,6 +498,12 @@ export const MarketTypeGroupsBySport: Record<Sport, Partial<Record<MarketTypeGro
         [MarketTypeGroup.TOTALS]: [...TOTAL_MARKET_TYPES, ...TOTAL_ODD_EVEN_MARKET_TYPES],
         [MarketTypeGroup.PLAYER_PROPS]: PLAYER_PROPS_MARKET_TYPES,
     },
+    [Sport.DARTS]: {
+        [MarketTypeGroup.WINNER]: WINNER_MARKET_TYPES,
+        [MarketTypeGroup.TOTALS]: [...TOTAL_MARKET_TYPES, ...TOTAL_ODD_EVEN_MARKET_TYPES],
+        [MarketTypeGroup.HANDICAP]: SPREAD_MARKET_TYPES,
+        [MarketTypeGroup.PLAYER_PROPS]: PLAYER_PROPS_MARKET_TYPES,
+    },
     [Sport.GOLF]: {
         [MarketTypeGroup.WINNER]: WINNER_MARKET_TYPES,
         [MarketTypeGroup.TOTALS]: [...TOTAL_MARKET_TYPES, ...TOTAL_ODD_EVEN_MARKET_TYPES],
@@ -694,8 +731,8 @@ export const MarketTypePlayerPropsGroupsBySport: Record<Sport, Partial<Record<Ma
         [MarketTypeGroup.INNINGS]: PERIOD_MARKET_TYPES,
         [MarketTypeGroup.PLAYER_BATTER]: [
             MarketType.PLAYER_PROPS_HOMERUNS,
-            MarketType.PLAYER_PROPS_HITS_RECORDED,
             MarketType.PLAYER_PROPS_BASES,
+            MarketType.PLAYER_PROPS_HITS_RECORDED,
             MarketType.PLAYER_PROPS_RBIS,
             MarketType.PLAYER_PROPS_HITS_RUNS_RBIS,
             MarketType.PLAYER_PROPS_RUNS,
@@ -827,6 +864,11 @@ export const MarketTypePlayerPropsGroupsBySport: Record<Sport, Partial<Record<Ma
     [Sport.WATERPOLO]: {},
     [Sport.CRICKET]: {
         [MarketTypeGroup.TOTALS]: [...TOTAL_MARKET_TYPES, ...TOTAL_ODD_EVEN_MARKET_TYPES],
+    },
+    [Sport.DARTS]: {
+        [MarketTypeGroup.TOTALS]: [...TOTAL_MARKET_TYPES, ...TOTAL_ODD_EVEN_MARKET_TYPES],
+        [MarketTypeGroup.HANDICAP]: SPREAD_MARKET_TYPES,
+        [MarketTypeGroup.PLAYER_PROPS]: PLAYER_PROPS_MARKET_TYPES,
     },
     [Sport.GOLF]: {
         [MarketTypeGroup.TOTALS]: [...TOTAL_MARKET_TYPES, ...TOTAL_ODD_EVEN_MARKET_TYPES],
