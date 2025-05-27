@@ -61,8 +61,8 @@ export default defineConfig(({ mode }) => {
             port: 3000,
             // Allow connections from the Cloudflare Tunnel hostnames
             allowedHosts: [
-                'sun-entertainment-negotiations-jail.trycloudflare.com',
-                'installed-schedules-identified-territories.trycloudflare.com',
+                
+                'satisfaction-carriers-laundry-reminder.trycloudflare.com'
             ],
         },
         build: {

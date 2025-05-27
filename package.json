@@ -5,6 +5,7 @@
     "dependencies": {
         "@biconomy/account": "4.1.1",
         "@farcaster/frame-sdk": "^0.0.36",
+        "@farcaster/frame-wagmi-connector": "^0.0.34",
         "@particle-network/authkit": "^2.0.19",
         "@particle-network/wallet": "^2.0.8",
         "@rainbow-me/rainbowkit": "^2.0.0",

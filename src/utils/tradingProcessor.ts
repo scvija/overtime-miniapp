@@ -1,19 +1,21 @@
 import axios from 'axios';
 import { generalConfig } from 'config/general';
 import { getErrorToastOptions, getLoadingToastOptions } from 'config/toast';
-import { ZERO_ADDRESS } from 'constants/network';
+import { GAS_ESTIMATION_BUFFER, ZERO_ADDRESS } from 'constants/network';
 import { secondsToMilliseconds } from 'date-fns';
 import { toast } from 'react-toastify';
 import { TradeData } from 'types/markets';
 import { SupportedNetwork } from 'types/network';
 import { ViemContract } from 'types/viem';
 import { delay } from 'utils/timer';
-import { decodeEventLog, DecodeEventLogParameters } from 'viem';
+import { Client, decodeEventLog, DecodeEventLogParameters, encodeFunctionData } from 'viem';
+import { estimateGas } from 'viem/actions';
 import { executeBiconomyTransaction } from './biconomy';
 import freeBetHolder from './contracts/freeBetHolder';
 import liveTradingProcessorContract from './contracts/liveTradingProcessorContract';
 import sgpTradingProcessorContract from './contracts/sgpTradingProcessorContract';
 import { convertFromBytes32 } from './formatters/string';
+import { Address } from 'viem';
 
 const DELAY_BETWEEN_CHECKS_SECONDS = 1; // 1s
 const UPDATE_STATUS_MESSAGE_PERIOD_SECONDS = 5 * DELAY_BETWEEN_CHECKS_SECONDS; // 5s - must be whole number multiplier of delay
@@ -131,6 +133,7 @@ export const getTradingProcessorTransaction: any = async (
     isSgp: boolean,
     collateralAddress: string,
     tradingProcessorContract: ViemContract,
+    client: Client,
     tradeData: TradeData[],
     buyInAmount: bigint,
     expectedQuote: bigint,
@@ -140,15 +143,19 @@ export const getTradingProcessorTransaction: any = async (
     isFreeBet: boolean,
     freeBetHolderContract: ViemContract,
     networkId: SupportedNetwork,
-    isEth?: boolean
-): Promise<any> => {
+    isEth?: boolean,
+    gasLimit?: bigint
+) => {
     const referralAddress = referral || ZERO_ADDRESS;
     const gameId = convertFromBytes32(tradeData[0].gameId);
 
-    let txParams = {};
+    let txParamsObject: any = {};
+    let contractToUse: ViemContract = tradingProcessorContract;
+    let functionToCall = '';
+    let useEthValue = isEth && !isFreeBet ? buyInAmount : 0n;
 
     if (isLive) {
-        txParams = {
+        txParamsObject = {
             _gameId: gameId,
             _sportId: tradeData[0].sportId,
             _typeId: tradeData[0].typeId,
@@ -160,8 +167,9 @@ export const getTradingProcessorTransaction: any = async (
             _referrer: referralAddress,
             _collateral: collateralAddress,
         };
+        functionToCall = isFreeBet ? 'tradeLive' : 'requestLiveTrade';
     } else if (isSgp) {
-        txParams = {
+        txParamsObject = {
             _tradeData: tradeData,
             _buyInAmount: buyInAmount,
             _expectedQuote: expectedQuote,
@@ -169,35 +177,50 @@ export const getTradingProcessorTransaction: any = async (
             _referrer: referralAddress,
             _collateral: collateralAddress,
         };
+        functionToCall = isFreeBet ? 'tradeSGP' : 'requestSGPTrade';
     }
 
     if (isFreeBet && freeBetHolderContract) {
-        if (isAA) {
-            return await executeBiconomyTransaction({
-                collateralAddress: collateralAddress as any,
-                networkId,
-                contract: freeBetHolderContract,
-                methodName: isSgp ? 'tradeSGP' : 'tradeLive',
-                data: [txParams],
-                isEth,
-            });
-        } else
-            return isSgp
-                ? freeBetHolderContract.write.tradeSGP([txParams])
-                : freeBetHolderContract.write.tradeLive([txParams]);
+        contractToUse = freeBetHolderContract;
     }
 
     if (isAA) {
         return await executeBiconomyTransaction({
             collateralAddress: collateralAddress as any,
             networkId,
-            contract: tradingProcessorContract,
-            methodName: isSgp ? 'requestSGPTrade' : 'requestLiveTrade',
-            data: [txParams],
-            isEth,
+            contract: contractToUse,
+            methodName: functionToCall,
+            data: [txParamsObject],
+            value: useEthValue,
         });
-    } else
-        return isSgp
-            ? tradingProcessorContract.write.requestSGPTrade([txParams])
-            : tradingProcessorContract.write.requestLiveTrade([txParams]);
+    } else {
+        const txOptions: { value: bigint; gas?: bigint } = { value: useEthValue };
+        if (gasLimit) {
+            txOptions.gas = gasLimit;
+        } else {
+            const encodedDataForEstimate = encodeFunctionData({
+                abi: contractToUse.abi,
+                functionName: functionToCall,
+                args: [txParamsObject],
+            });
+            const estimation = await estimateGas(client, {
+                account: client.account,
+                to: contractToUse.address as Address,
+                data: encodedDataForEstimate,
+                value: useEthValue,
+        });
+            txOptions.gas = BigInt(Math.ceil(Number(estimation) * GAS_ESTIMATION_BUFFER));
+        }
+
+        if (functionToCall === 'requestLiveTrade') {
+            return contractToUse.write.requestLiveTrade([txParamsObject as any], txOptions);
+        } else if (functionToCall === 'requestSGPTrade') {
+            return contractToUse.write.requestSGPTrade([txParamsObject as any], txOptions);
+        } else if (functionToCall === 'tradeLive') {
+            return contractToUse.write.tradeLive([txParamsObject as any], txOptions);
+        } else if (functionToCall === 'tradeSGP') {
+            return contractToUse.write.tradeSGP([txParamsObject as any], txOptions);
+        }
+        throw new Error(`Invalid functionToCall: ${functionToCall}`);
+    }
 };

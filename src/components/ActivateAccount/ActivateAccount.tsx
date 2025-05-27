@@ -198,7 +198,7 @@ const ActivateAccount: React.FC<any> = () => {
                                         fontWeight: '800',
                                         fontSize: '12px',
                                         padding: '9px 20px',
-                                        width: isSmallDevice ? '100%' : '100px',
+                                        width: isSmallDevice() ? '100%' : '100px',
                                         height: '30px',
                                         zIndex: 1000,
                                     }}

@@ -22,10 +22,22 @@ export const getSportsAMMV2Transaction: any = async (
     isFreeBet: boolean,
     client: Client,
     isSystemBet: boolean,
-    systemBetDenominator: number
+    systemBetDenominator: number,
+    gasLimit?: bigint
 ): Promise<any> => {
-    let finalEstimation = null;
     const referralAddress = referral || ZERO_ADDRESS;
+
+    const getGasOptions = async (encodedData: Address, contractAddress: Address, value: bigint = 0n) => {
+        if (gasLimit) {
+            return { value, gas: gasLimit };
+        }
+        const estimation = await estimateGas(client, {
+            to: contractAddress,
+            data: encodedData,
+            value,
+        });
+        return { value, gas: BigInt(Math.ceil(Number(estimation) * GAS_ESTIMATION_BUFFER)) };
+    };
 
     if (isFreeBet && freeBetHolderContract) {
         if (isSystemBet) {
@@ -44,13 +56,7 @@ export const getSportsAMMV2Transaction: any = async (
             });
 
             if (!isAA) {
-                const estimation = await estimateGas(client, {
-                    to: freeBetHolderContract.address as Address,
-                    data: encodedData,
-                });
-
-                finalEstimation = BigInt(Math.ceil(Number(estimation) * GAS_ESTIMATION_BUFFER));
-
+                const gasOptions = await getGasOptions(encodedData, freeBetHolderContract.address as Address);
                 return freeBetHolderContract.write.tradeSystemBet(
                     [
                         tradeData,
@@ -61,9 +67,9 @@ export const getSportsAMMV2Transaction: any = async (
                         collateralAddress,
                         systemBetDenominator,
                     ],
-                    { value: BigInt(0), gas: finalEstimation }
+                    gasOptions
                 );
-            } else
+            }
                 return await executeBiconomyTransaction({
                     networkId,
                     contract: freeBetHolderContract,
@@ -87,16 +93,10 @@ export const getSportsAMMV2Transaction: any = async (
             });
 
             if (!isAA) {
-                const estimation = await estimateGas(client, {
-                    to: freeBetHolderContract.address as Address,
-                    data: encodedData,
-                });
-
-                finalEstimation = BigInt(Math.ceil(Number(estimation) * GAS_ESTIMATION_BUFFER));
-
+                const gasOptions = await getGasOptions(encodedData, freeBetHolderContract.address as Address);
                 return freeBetHolderContract.write.trade(
                     [tradeData, buyInAmount, expectedQuote, additionalSlippage, referralAddress, collateralAddress],
-                    { value: BigInt(0), gas: finalEstimation }
+                    gasOptions
                 );
             } else {
                 console.log('this should be executed');
@@ -118,6 +118,7 @@ export const getSportsAMMV2Transaction: any = async (
         }
     }
 
+    if (sportsAMMV2Contract) {
     if (isSystemBet) {
         const encodedData = encodeFunctionData({
             abi: sportsAMMV2Contract.abi,
@@ -135,14 +136,7 @@ export const getSportsAMMV2Transaction: any = async (
         });
 
         if (!isAA) {
-            const estimation = await estimateGas(client, {
-                to: sportsAMMV2Contract.address as Address,
-                data: encodedData,
-                value: isEth ? buyInAmount : BigInt(0),
-            });
-
-            finalEstimation = BigInt(Math.ceil(Number(estimation) * GAS_ESTIMATION_BUFFER));
-
+                const gasOptions = await getGasOptions(encodedData, sportsAMMV2Contract.address as Address, isEth ? buyInAmount : 0n);
             return sportsAMMV2Contract.write.tradeSystemBet(
                 [
                     tradeData,
@@ -154,9 +148,9 @@ export const getSportsAMMV2Transaction: any = async (
                     isEth,
                     systemBetDenominator,
                 ],
-                { value: isEth ? buyInAmount : BigInt(0), gas: finalEstimation }
+                    gasOptions
             );
-        } else {
+            }
             return await executeBiconomyTransaction({
                 networkId,
                 collateralAddress: collateralAddress as any,
@@ -174,7 +168,6 @@ export const getSportsAMMV2Transaction: any = async (
                 ],
                 value: isEth ? buyInAmount : BigInt(0),
             });
-        }
     } else {
         const encodedData = encodeFunctionData({
             abi: sportsAMMV2Contract.abi,
@@ -191,14 +184,7 @@ export const getSportsAMMV2Transaction: any = async (
         });
 
         if (!isAA) {
-            const estimation = await estimateGas(client, {
-                to: sportsAMMV2Contract.address as Address,
-                data: encodedData,
-                value: isEth ? buyInAmount : BigInt(0),
-            });
-
-            finalEstimation = BigInt(Math.ceil(Number(estimation) * GAS_ESTIMATION_BUFFER));
-
+                const gasOptions = await getGasOptions(encodedData, sportsAMMV2Contract.address as Address, isEth ? buyInAmount : 0n);
             return sportsAMMV2Contract.write.trade(
                 [
                     tradeData,
@@ -209,7 +195,7 @@ export const getSportsAMMV2Transaction: any = async (
                     isDefaultCollateral ? ZERO_ADDRESS : collateralAddress,
                     isEth,
                 ],
-                { value: isEth ? buyInAmount : BigInt(0), gas: finalEstimation }
+                    gasOptions
             );
         } else {
             return await executeBiconomyTransaction({
@@ -230,6 +216,9 @@ export const getSportsAMMV2Transaction: any = async (
             });
         }
     }
+    }
+    console.error("getSportsAMMV2Transaction: No valid contract path executed.");
+    throw new Error("Transaction could not be prepared.");
 };
 
 export const getSportsAMMV2QuoteMethod: any = (

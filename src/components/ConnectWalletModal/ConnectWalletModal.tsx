@@ -31,6 +31,8 @@ import { ParticalTypes, WalletConnections } from 'types/wallet';
 import { isNetworkSupported } from 'utils/network';
 import { getSpecificConnectorFromConnectorsArray, getWalletLabel } from 'utils/particleWallet/utils';
 import { Connector, useConnect } from 'wagmi';
+import { useConnect as useParticleAuthConnect } from '@particle-network/authkit';
+import Tooltip from 'components/Tooltip';
 
 ReactModal.setAppElement('#root');
 
@@ -57,6 +59,12 @@ const getDefaultStyle = (theme: ThemeInterface, isMobile: boolean, isLoading: bo
     },
 });
 
+const ErrorText = styled.p`
+    color: ${(props) => props.theme.error.textColor.primary};
+    font-size: 12px;
+    margin-left: 10px;
+`;
+
 type ConnectWalletModalProps = {
     isOpen: boolean;
     onClose: () => void;
@@ -66,21 +74,68 @@ const ConnectWalletModal: React.FC<ConnectWalletModalProps> = ({ isOpen, onClose
     const { t } = useTranslation();
     const theme: ThemeInterface = useTheme();
     const dispatch = useDispatch();
-    const { connectors, isPending, connect } = useConnect();
+    const { connectors, isPending, connect: wagmiConnectHook } = useConnect();
+    const { connect: particleAuthKitConnect, connectionStatus: particleAuthKitConnectionStatus } =
+        useParticleAuthConnect();
     const isMobile = useSelector((state: RootState) => getIsMobile(state));
     const isBiconomy = useSelector((state: RootState) => getIsBiconomy(state));
     const { openConnectModal } = useConnectModal();
 
+    const isInIframe = window.self !== window.top;
+    const isDesktopIframe = isInIframe && !isMobile;
+
     const [termsAccepted, setTerms] = useLocalStorage(LOCAL_STORAGE_KEYS.TERMS_AND_CONDITIONS, false);
+    const [showTermsError, setShowTermsError] = useState(false);
 
     const [isConnecting, setIsConnecting] = useState(false);
 
-    const handleParticleConnect = (connector: Connector) => {
+    const handleParticleConnect = async (walletType: ParticalTypes) => {
+        if (!termsAccepted) {
+            setShowTermsError(true);
+            return;
+        }
+        setShowTermsError(false);
+        setIsConnecting(true);
+
+        if (walletType === ParticalTypes.GOOGLE && isDesktopIframe) {
+            // This case should ideally be prevented by disabling the button,
+            // but as a fallback, do nothing or show an alert.
+            console.log('[ConnectWalletModal] Google login attempted in desktop iframe, but should be disabled.');
+            setIsConnecting(false);
+            return;
+        }
+
+        // For Particle Auth Core SDK direct social login (Google, in popup/redirect for desktop iframe)
+        if (isDesktopIframe && (walletType === ParticalTypes.GOOGLE || walletType === ParticalTypes.DISCORD || walletType === ParticalTypes.TWITTER)) {
         try {
-            connect({ connector });
-            onClose();
+                const userInfo = await particleAuthKitConnect({ socialType: walletType.toLowerCase() as any });
+                console.log('[ConnectWalletModal] Particle AuthKit direct connect success:', userInfo);
+                // Assuming successful connection via AuthKit also implies connection for wagmi state
+                // This might need further integration depending on how AuthKit reports back to wagmi
+            } catch (error) {
+                console.error('[ConnectWalletModal] Error with Particle AuthKit direct connect:', error);
+            } finally {
+                console.log('[ConnectWalletModal] Particle AuthKit connection status after attempt:', particleAuthKitConnectionStatus);
+                setIsConnecting(false);
+                onClose(); // Close modal after attempt
+            }
+        } else {
+            // Standard wagmi connection for other Particle connectors or non-desktop-iframe scenarios
+            console.log('[ConnectWalletModal] Using wagmi connect for Particle or non-desktop-iframe social.');
+            const particleConnector = connectors.find(
+                (connector) => connector.id === 'particleNetwork' && connector.name === walletType
+            );
+            if (particleConnector) {
+                try {
+                    await handleConnect(particleConnector);
         } catch (e) {
-            console.log('Error occurred');
+                    console.log(e);
+                    setIsConnecting(false);
+                }
+            } else {
+                console.error('[ConnectWalletModal] Particle connector for type ', walletType, ' not found');
+                setIsConnecting(false);
+            }
         }
     };
 
@@ -95,7 +150,7 @@ const ConnectWalletModal: React.FC<ConnectWalletModalProps> = ({ isOpen, onClose
                 await connector.switchChain({ chainId: DEFAULT_NETWORK.networkId });
             }
 
-            connect({ connector });
+            wagmiConnectHook({ connector });
             onClose();
         } catch (e) {
             console.log('Error occurred', e);
@@ -141,16 +196,38 @@ const ConnectWalletModal: React.FC<ConnectWalletModalProps> = ({ isOpen, onClose
                     </HeaderContainer>
                     <ButtonsContainer disabled={!termsAccepted}>
                         <SocialLoginWrapper>
-                            {SUPPORTED_PARTICAL_CONNECTORS_MODAL.map((item, index) => {
-                                const connector = getSpecificConnectorFromConnectorsArray(connectors, item);
-                                if (connector) {
+                            {SUPPORTED_PARTICAL_CONNECTORS_MODAL.map((item) => {
+                                const connector = connectors.find((c) => c.id === 'particleNetwork' && c.name === item);
+                                if (!connector && !(isDesktopIframe && (item === ParticalTypes.GOOGLE || item === ParticalTypes.DISCORD || item === ParticalTypes.TWITTER) )) return null;
+
+                                const isSocialLoginInDesktopIframe = isDesktopIframe && 
+                                    (item === ParticalTypes.GOOGLE || item === ParticalTypes.DISCORD || item === ParticalTypes.TWITTER);
+
+                                if (isSocialLoginInDesktopIframe) {
+                                    return (
+                                        <Tooltip
+                                            key={item}
+                                            overlay={<>{t('common.wallet.social-in-frame-not-supported')}</>}
+                                        >
+                                            <Button
+                                                disabled={true} // Always disabled in this case
+                                                onClick={() => {}} // No action
+                                                oneButtoninRow={true} // Added to match styling of other buttons if needed
+                                            >
+                                                {getIcon(item)}
+                                                {t(getWalletLabel(item))}
+                                            </Button>
+                                        </Tooltip>
+                                    );
+                                } else {
                                     return (
                                         <Button
-                                            key={index}
-                                            onClick={() => handleParticleConnect(connector)}
-                                            oneButtoninRow={true}
+                                            key={item}
+                                            onClick={() => handleParticleConnect(item)}
+                                            disabled={isConnecting}
+                                            oneButtoninRow={true} // Added to match styling of other buttons if needed
                                         >
-                                            {<> {getIcon(item)}</>}
+                                            {getIcon(item)}
                                             {t(getWalletLabel(item))}
                                         </Button>
                                     );
@@ -223,6 +300,7 @@ const ConnectWalletModal: React.FC<ConnectWalletModalProps> = ({ isOpen, onClose
                     <CheckboxContainer disabled={false}>
                         <Checkbox value={''} checked={termsAccepted} onChange={() => setTerms(!termsAccepted)} />
                         <Label onClick={() => setTerms(!termsAccepted)}>{t('common.wallet.agree-terms')}</Label>
+                        {showTermsError && <ErrorText>{t('common.wallet.accept-terms-error')}</ErrorText>}
                     </CheckboxContainer>
 
                     <FooterContainer>
@@ -396,7 +474,7 @@ const ConnectWithLabel = styled.span`
     background: ${(props) => props.theme.background.secondary};
 `;
 
-const Button = styled(FlexDivCentered)<{ oneButtoninRow?: boolean; active?: boolean }>`
+const Button = styled(FlexDivCentered)<{ oneButtoninRow?: boolean; active?: boolean; disabled?: boolean }>`
     border-radius: 8px;
     width: 100%;
     height: 50px;
@@ -404,12 +482,23 @@ const Button = styled(FlexDivCentered)<{ oneButtoninRow?: boolean; active?: bool
     color: ${(props) => props.theme.textColor.primary};
     font-size: 16px;
     font-weight: 500;
-    cursor: pointer;
+    opacity: ${(props) => (props.disabled ? 0.5 : 1)};
+    cursor: ${(props) => (props.disabled ? 'not-allowed' : 'pointer')};
     &:hover {
-        background-color: ${(props) => (props.oneButtoninRow ? props.theme.connectWalletModal.hover : '')};
+        background-color: ${(props) =>
+            !props.disabled && props.oneButtoninRow ? props.theme.connectWalletModal.hover : ''};
         color: ${(props) =>
-            props.oneButtoninRow ? props.theme.button.textColor.primary : props.theme.button.textColor.quaternary};
-        border: ${(props) => (props.oneButtoninRow ? 'none' : `1px ${props.theme.button.borderColor.secondary} solid`)};
+            !props.disabled && props.oneButtoninRow
+                ? props.theme.button.textColor.primary
+                : !props.disabled
+                ? props.theme.button.textColor.quaternary
+                : ''};
+        border: ${(props) =>
+            !props.disabled && props.oneButtoninRow
+                ? 'none'
+                : !props.disabled
+                ? `1px ${props.theme.button.borderColor.secondary} solid`
+                : `1px ${props.theme.borderColor.primary} solid`};
     }
 `;
 
