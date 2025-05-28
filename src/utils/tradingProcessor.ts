@@ -146,6 +146,14 @@ export const getRequestId = (txLogs: any, isFreeBet: boolean, isSgp: boolean) =>
     return requestIdEvent[0]?.requestId ? requestIdEvent[0]?.requestId : undefined;
 };
 
+// Default gas limits for different transaction types when estimation fails
+const DEFAULT_GAS_LIMITS = {
+    LIVE_TRADE: 2100000n,
+    SGP_TRADE: 2400000n,
+    REQUEST_LIVE_TRADE: 1800000n,
+    REQUEST_SGP_TRADE: 2100000n,
+};
+
 export const getTradingProcessorTransaction: any = async (
     isLive: boolean,
     isSgp: boolean,
@@ -162,7 +170,8 @@ export const getTradingProcessorTransaction: any = async (
     freeBetHolderContract: ViemContract,
     networkId: SupportedNetwork,
     isEth?: boolean,
-    gasLimit?: bigint
+    gasLimit?: bigint,
+    isFarcasterWallet?: boolean
 ) => {
     const referralAddress = referral || ZERO_ADDRESS;
     const gameId = convertFromBytes32(tradeData[0].gameId);
@@ -213,21 +222,45 @@ export const getTradingProcessorTransaction: any = async (
         });
     } else {
         const txOptions: { value: bigint; gas?: bigint } = { value: useEthValue };
+
+        // Determine appropriate fallback gas limit based on function
+        let fallbackGas: bigint;
+        if (functionToCall === 'requestLiveTrade') {
+            fallbackGas = DEFAULT_GAS_LIMITS.REQUEST_LIVE_TRADE;
+        } else if (functionToCall === 'requestSGPTrade') {
+            fallbackGas = DEFAULT_GAS_LIMITS.REQUEST_SGP_TRADE;
+        } else if (functionToCall === 'tradeLive') {
+            fallbackGas = DEFAULT_GAS_LIMITS.LIVE_TRADE;
+        } else if (functionToCall === 'tradeSGP') {
+            fallbackGas = DEFAULT_GAS_LIMITS.SGP_TRADE;
+        } else {
+            fallbackGas = DEFAULT_GAS_LIMITS.REQUEST_LIVE_TRADE; // Default fallback
+        }
+
         if (gasLimit) {
             txOptions.gas = gasLimit;
+        } else if (isFarcasterWallet) { // If Farcaster wallet, use fallback directly
+            console.warn('Farcaster wallet detected, using fallback gas limit directly for trading processor.');
+            txOptions.gas = fallbackGas;
         } else {
             const encodedDataForEstimate = encodeFunctionData({
                 abi: contractToUse.abi,
                 functionName: functionToCall,
                 args: [txParamsObject],
             });
-            const estimation = await estimateGas(client, {
-                account: client.account,
-                to: contractToUse.address as Address,
-                data: encodedDataForEstimate,
-                value: useEthValue,
-        });
-            txOptions.gas = BigInt(Math.ceil(Number(estimation) * GAS_ESTIMATION_BUFFER));
+            
+            try {
+                const estimation = await estimateGas(client, {
+                    account: client.account,
+                    to: contractToUse.address as Address,
+                    data: encodedDataForEstimate,
+                    value: useEthValue,
+                });
+                txOptions.gas = BigInt(Math.ceil(Number(estimation) * GAS_ESTIMATION_BUFFER));
+            } catch (error) {
+                console.warn('Gas estimation failed, using fallback gas limit:', error);
+                txOptions.gas = fallbackGas;
+            }
         }
 
         if (functionToCall === 'requestLiveTrade') {

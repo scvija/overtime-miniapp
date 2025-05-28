@@ -6,6 +6,14 @@ import { estimateGas } from 'viem/actions';
 import { TradeData } from '../types/markets';
 import { executeBiconomyTransaction } from './smartAccount/biconomy/biconomy';
 
+// Default gas limits for different transaction types when estimation fails
+const DEFAULT_GAS_LIMITS = {
+    TRADE: 1800000n,
+    TRADE_SYSTEM_BET: 2400000n,
+    FREE_BET_TRADE: 2100000n,
+    FREE_BET_SYSTEM_BET: 2700000n,
+};
+
 export const getSportsAMMV2Transaction: any = async (
     collateralAddress: string,
     isDefaultCollateral: boolean,
@@ -23,20 +31,41 @@ export const getSportsAMMV2Transaction: any = async (
     client: Client,
     isSystemBet: boolean,
     systemBetDenominator: number,
-    gasLimit?: bigint
+    gasLimit?: bigint,
+    isFarcasterWallet?: boolean
 ): Promise<any> => {
     const referralAddress = referral || ZERO_ADDRESS;
 
     const getGasOptions = async (encodedData: Address, contractAddress: Address, value: bigint = 0n) => {
+        // Determine appropriate fallback gas limit based on transaction type
+        let fallbackGas: bigint;
+        if (isFreeBet) {
+            fallbackGas = isSystemBet ? DEFAULT_GAS_LIMITS.FREE_BET_SYSTEM_BET : DEFAULT_GAS_LIMITS.FREE_BET_TRADE;
+        } else {
+            fallbackGas = isSystemBet ? DEFAULT_GAS_LIMITS.TRADE_SYSTEM_BET : DEFAULT_GAS_LIMITS.TRADE;
+        }
+
         if (gasLimit) {
             return { value, gas: gasLimit };
         }
-        const estimation = await estimateGas(client, {
-            to: contractAddress,
-            data: encodedData,
-            value,
-        });
-        return { value, gas: BigInt(Math.ceil(Number(estimation) * GAS_ESTIMATION_BUFFER)) };
+
+        // If Farcaster wallet, immediately return fallback gas, skip estimation
+        if (isFarcasterWallet) {
+            console.warn('Farcaster wallet detected, using fallback gas limit directly.');
+            return { value, gas: fallbackGas };
+        }
+        
+        try {
+            const estimation = await estimateGas(client, {
+                to: contractAddress,
+                data: encodedData,
+                value,
+            });
+            return { value, gas: BigInt(Math.ceil(Number(estimation) * GAS_ESTIMATION_BUFFER)) };
+        } catch (error) {
+            console.warn('Gas estimation failed, using fallback gas limit:', error);
+            return { value, gas: fallbackGas };
+        }
     };
 
     if (isFreeBet && freeBetHolderContract) {
