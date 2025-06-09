@@ -21,38 +21,38 @@ type ModalProps = {
 
 ReactModal.setAppElement('#root');
 
-const defaultCustomStyles = {
-    content: !isSmallDevice
-        ? {
-              top: '50%',
-              left: '50%',
-              right: 'auto',
-              bottom: 'auto',
-              marginRight: '-48%',
-              transform: 'translate(-50%, -50%)',
-              padding: '0px',
-              background: 'transparent',
-              border: 'none',
-              overflow: 'auto',
-          }
-        : {
-              top: '0',
-              left: '0',
-              right: 'auto',
-              bottom: 'auto',
-              marginRight: '0',
-              transform: 'none',
-              width: '100%',
-              padding: '0px',
-              background: 'transparent',
-              border: 'none',
-              overflow: 'auto',
-          },
-    overlay: {
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        zIndex: 2000,
-    },
-};
+  const defaultCustomStyles = {
+        content: isSmallDevice()
+            ? {
+                  top: '50%',
+                  left: '50%',
+                  right: 'auto',
+                  bottom: 'auto',
+                  marginRight: '-48%',
+                  transform: 'translate(-50%, -50%)',
+                  padding: '0px',
+                  background: 'transparent',
+                  border: 'none',
+                  overflow: 'auto',
+              }
+            : {
+                  top: '0',
+                  left: '0',
+                  right: 'auto',
+                  bottom: 'auto',
+                  marginRight: '0',
+                  transform: 'none',
+                  width: '100%',
+                  padding: '0px',
+                  background: 'transparent',
+                  border: 'none',
+                  overflow: 'auto',
+              },
+        overlay: {
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 2000,
+        },
+    };
 
 const Modal: React.FC<ModalProps> = ({
     title,
