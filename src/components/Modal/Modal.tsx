@@ -23,7 +23,7 @@ type ModalProps = {
 ReactModal.setAppElement('#root');
 
 const defaultCustomStyles = {
-    content: isSmallDevice
+    content: isSmallDevice()
         ? {
               top: '0',
               left: '0',

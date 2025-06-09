@@ -65,8 +65,8 @@ export default defineConfig(({ mode }) => {
             port: 3000,
             // Allow connections from the Cloudflare Tunnel hostnames
             allowedHosts: [
-                
-                'satisfaction-carriers-laundry-reminder.trycloudflare.com'
+                'satisfaction-carriers-laundry-reminder.trycloudflare.com',
+                'nature-suzuki-insight-movers.trycloudflare.com'
             ],
         },
         build: {
