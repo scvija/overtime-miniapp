@@ -98,13 +98,13 @@ const MarketsList: React.FC<MarketsListProps> = ({ markets, league, language }) 
             {isPlayerPropsSelected && marketsMapByGame ? (
                 <>
                     {Object.keys(marketsMapByGame).map((key) => (
-                        <GamesContainer key={key} hidden={hideLeague}>
+                        <GamesContainer key={key} isHidden={hideLeague}>
                             <GameList markets={marketsMapByGame[key]} language={language} />
                         </GamesContainer>
                     ))}
                 </>
             ) : isSportByTournamentSelected && marketsMapByTournament && league ? (
-                <GamesContainer hidden={hideLeague && !!league}>
+                <GamesContainer isHidden={hideLeague && !!league}>
                     {Object.keys(marketsMapByTournament).map((key) => (
                         <TournamentMarketsList
                             key={key}
@@ -116,7 +116,7 @@ const MarketsList: React.FC<MarketsListProps> = ({ markets, league, language }) 
                     ))}
                 </GamesContainer>
             ) : (
-                <GamesContainer hidden={hideLeague && !!league}>
+                <GamesContainer isHidden={hideLeague && !!league}>
                     {sortedMarkets.map((market: SportMarket, index: number) => (
                         <LazyLoad height={130} key={index + 'list'} offset={800}>
                             <MarketListCardV2 language={language} market={market} showLeagueInfo={!league} />
