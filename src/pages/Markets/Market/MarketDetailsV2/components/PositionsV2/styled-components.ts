@@ -20,15 +20,17 @@ export const Container = styled(FlexDivColumn)<{
     }
 `;
 
-export const Header = styled(FlexDivColumnCentered)<{
+export const Header = styled(FlexDivColumnCentered).withConfig({
+    shouldForwardProp: (prop) => prop !== 'isHidden',
+})<{
     isMainPageView?: boolean;
     isColumnView?: boolean;
     alignHeader?: boolean;
-    hidden?: boolean;
+    isHidden?: boolean;
     float?: boolean;
     isSticky?: boolean;
 }>`
-    display: ${(props) => (props.hidden ? 'none' : 'flex')};
+    display: ${(props) => (props.isHidden ? 'none' : 'flex')};
     position: ${(props) => (props.float ? 'absolute' : props.isSticky ? 'sticky' : 'relative')};
     ${(props) => props.float && 'top: -35px; left: 50%; transform: translateX(-50%);'}
     ${(props) => props.isSticky && `top: 0; background: ${props.theme.background.quinary}; z-index: 1;`}

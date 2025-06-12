@@ -145,7 +145,7 @@ const Tag: React.FC<TagProps> = ({
                     )
                 )}
                 <StarIcon
-                    hidden={tag.label === SportFilter.Favourites}
+                    isHidden={tag.label === SportFilter.Favourites}
                     hasMargin
                     isMobile={isMobile}
                     onClick={() => {
@@ -273,8 +273,10 @@ const Label = styled.div<{ isMobile: boolean }>`
     user-select: none;
 `;
 
-const StarIcon = styled.i<{ isMobile: boolean; hasMargin?: boolean; size?: number; hidden?: boolean }>`
-    visibility: ${(props) => (props.hidden ? 'hidden' : 'visible')};
+const StarIcon = styled.i.withConfig({
+    shouldForwardProp: (prop) => prop !== 'isHidden',
+})<{ isMobile: boolean; hasMargin?: boolean; size?: number; isHidden?: boolean }>`
+    visibility: ${(props) => (props.isHidden ? 'hidden' : 'visible')};
     font-size: ${(props) => (props.size ? `${props.size}px` : '15px')};
     margin-left: ${(props) => (props.hasMargin ? '5px' : '0')};
     &.selected,

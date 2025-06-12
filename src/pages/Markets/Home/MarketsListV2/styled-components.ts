@@ -43,8 +43,10 @@ export const TournamentInfo = styled(LeagueInfo)`
     width: 100%;
 `;
 
-export const GamesContainer = styled.div<{ hidden?: boolean }>`
-    display: ${(props) => (props.hidden ? 'none' : 'flex')};
+export const GamesContainer = styled.div.withConfig({
+    shouldForwardProp: (prop) => prop !== 'isHidden',
+})<{ isHidden?: boolean }>`
+    display: ${(props) => (props.isHidden ? 'none' : 'flex')};
     flex-direction: column;
     gap: 10px;
     margin-bottom: 10px;

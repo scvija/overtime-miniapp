@@ -56,7 +56,7 @@ const TournamentMarketsList: React.FC<TournamentMarketsListProps> = ({ markets, 
                 </TournamentInfo>
             </TournamentCard>
 
-            <GamesContainer hidden={hideTournament}>
+            <GamesContainer isHidden={hideTournament}>
                 {markets.map((market: SportMarket, index: number) => (
                     <LazyLoad height={130} key={index + 'list'} offset={800}>
                         <MarketListCardV2 language={language} market={market} showLeagueInfo={!leagueId} />

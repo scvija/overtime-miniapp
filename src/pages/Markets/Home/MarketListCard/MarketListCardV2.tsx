@@ -572,7 +572,7 @@ const MarketListCard: React.FC<MarketRowCardProps> = memo(
                                         />
                                     )}
                                     <MarketsCountWrapper
-                                        hidden={marketsCount === 0}
+                                        isHidden={marketsCount === 0}
                                         onClick={() => {
                                             if (isPlayerPropsMarket) {
                                                 dispatch(
@@ -690,7 +690,7 @@ const MarketListCard: React.FC<MarketRowCardProps> = memo(
                                         </>
                                     )}
                                     <MarketsCountWrapper
-                                        hidden={marketsCount === 0}
+                                        isHidden={marketsCount === 0}
                                         isPlayerPropsMarket={isPlayerPropsMarket}
                                         onClick={() => {
                                             if (isPlayerPropsMarket) {

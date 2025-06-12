@@ -196,8 +196,10 @@ export const TeamNameLabel = styled.span<{ isColumnView: boolean; isMarketSelect
     }
 `;
 
-export const MarketsCountWrapper = styled(FlexDivColumnCentered)<{ hidden?: boolean; isPlayerPropsMarket?: boolean }>`
-    visibility: ${(props) => (props.hidden ? 'hidden' : 'visible')};
+export const MarketsCountWrapper = styled(FlexDivColumnCentered).withConfig({
+    shouldForwardProp: (prop) => prop !== 'isHidden',
+})<{ isHidden?: boolean; isPlayerPropsMarket?: boolean }>`
+    visibility: ${(props) => (props.isHidden ? 'hidden' : 'visible')};
     max-width: 35px;
     margin-left: 5px;
     font-weight: 600;
